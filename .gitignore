@@ -314,3 +314,4 @@ Makefile
 libtool
 stamp-h1
 **.dirstamp
+autom4te.cache/

@@ -85,6 +85,7 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 am__EXEEXT_1 = example_JESP$(EXEEXT) example_BFS$(EXEEXT) \
 	example_decTigerJESP$(EXEEXT) example_DICEPS$(EXEEXT) \
+	example_MMDP_SimulateMCTS$(EXEEXT) \
 	example_MMDP_SolveAndSimulate$(EXEEXT) \
 	example_RandomBGs$(EXEEXT) example_FOBS_SPUDD_export$(EXEEXT) \
 	example_MMDP_OnlineSolve$(EXEEXT) example_GMAA$(EXEEXT) \
@@ -128,6 +129,14 @@ example_MMDP_OnlineSolve_LINK = $(LIBTOOL) --tag=CXX \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CXXLD) \
 	$(example_MMDP_OnlineSolve_CXXFLAGS) $(CXXFLAGS) \
 	$(example_MMDP_OnlineSolve_LDFLAGS) $(LDFLAGS) -o $@
+am_example_MMDP_SimulateMCTS_OBJECTS =  \
+	example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.$(OBJEXT)
+example_MMDP_SimulateMCTS_OBJECTS =  \
+	$(am_example_MMDP_SimulateMCTS_OBJECTS)
+example_MMDP_SimulateMCTS_LINK = $(LIBTOOL) --tag=CXX \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CXXLD) \
+	$(example_MMDP_SimulateMCTS_CXXFLAGS) $(CXXFLAGS) \
+	$(example_MMDP_SimulateMCTS_LDFLAGS) $(LDFLAGS) -o $@
 am_example_MMDP_SolveAndSimulate_OBJECTS = example_MMDP_SolveAndSimulate-example_MMDP_SolveAndSimulate.$(OBJEXT)
 example_MMDP_SolveAndSimulate_OBJECTS =  \
 	$(am_example_MMDP_SolveAndSimulate_OBJECTS)
@@ -172,12 +181,14 @@ CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 SOURCES = $(example_BFS_SOURCES) $(example_DICEPS_SOURCES) \
 	$(example_FOBS_SPUDD_export_SOURCES) $(example_GMAA_SOURCES) \
 	$(example_JESP_SOURCES) $(example_MMDP_OnlineSolve_SOURCES) \
+	$(example_MMDP_SimulateMCTS_SOURCES) \
 	$(example_MMDP_SolveAndSimulate_SOURCES) \
 	$(example_Perseus_SOURCES) $(example_RandomBGs_SOURCES) \
 	$(example_decTigerJESP_SOURCES)
 DIST_SOURCES = $(example_BFS_SOURCES) $(example_DICEPS_SOURCES) \
 	$(example_FOBS_SPUDD_export_SOURCES) $(example_GMAA_SOURCES) \
 	$(example_JESP_SOURCES) $(example_MMDP_OnlineSolve_SOURCES) \
+	$(example_MMDP_SimulateMCTS_SOURCES) \
 	$(example_MMDP_SolveAndSimulate_SOURCES) \
 	$(example_Perseus_SOURCES) $(example_RandomBGs_SOURCES) \
 	$(example_decTigerJESP_SOURCES)
@@ -417,6 +428,7 @@ example_JESP \
 example_BFS \
 example_decTigerJESP \
 example_DICEPS \
+example_MMDP_SimulateMCTS \
 example_MMDP_SolveAndSimulate \
 example_RandomBGs \
 example_FOBS_SPUDD_export \
@@ -490,6 +502,15 @@ example_Perseus_DEPENDENCIES = $(MADPLIBS_NORMAL)
 example_Perseus_CPPFLAGS = $(AM_CPPFLAGS) $(CPP_OPTIMIZATION_FLAGS)
 example_Perseus_CXXFLAGS = $(CSTANDARD)
 example_Perseus_CFLAGS = 
+
+# Build example_MMDP_SimulateMCTS
+example_MMDP_SimulateMCTS_SOURCES = example_MMDP_SimulateMCTS.cpp
+example_MMDP_SimulateMCTS_LDADD = $(MADPLIBS_NORMAL) $(MADP_LD)
+example_MMDP_SimulateMCTS_LDFLAGS = $(AM_LDFLAGS) 
+example_MMDP_SimulateMCTS_DEPENDENCIES = $(MADPLIBS_NORMAL)
+example_MMDP_SimulateMCTS_CPPFLAGS = $(AM_CPPFLAGS) $(CPP_OPTIMIZATION_FLAGS)
+example_MMDP_SimulateMCTS_CXXFLAGS = $(CSTANDARD)
+example_MMDP_SimulateMCTS_CFLAGS = 
 
 # Build example_MMDP_SolveAndSimulate
 example_MMDP_SolveAndSimulate_SOURCES = example_MMDP_SolveAndSimulate.cpp
@@ -634,6 +655,9 @@ example_JESP$(EXEEXT): $(example_JESP_OBJECTS) $(example_JESP_DEPENDENCIES) $(EX
 example_MMDP_OnlineSolve$(EXEEXT): $(example_MMDP_OnlineSolve_OBJECTS) $(example_MMDP_OnlineSolve_DEPENDENCIES) $(EXTRA_example_MMDP_OnlineSolve_DEPENDENCIES) 
 	@rm -f example_MMDP_OnlineSolve$(EXEEXT)
 	$(example_MMDP_OnlineSolve_LINK) $(example_MMDP_OnlineSolve_OBJECTS) $(example_MMDP_OnlineSolve_LDADD) $(LIBS)
+example_MMDP_SimulateMCTS$(EXEEXT): $(example_MMDP_SimulateMCTS_OBJECTS) $(example_MMDP_SimulateMCTS_DEPENDENCIES) $(EXTRA_example_MMDP_SimulateMCTS_DEPENDENCIES) 
+	@rm -f example_MMDP_SimulateMCTS$(EXEEXT)
+	$(example_MMDP_SimulateMCTS_LINK) $(example_MMDP_SimulateMCTS_OBJECTS) $(example_MMDP_SimulateMCTS_LDADD) $(LIBS)
 example_MMDP_SolveAndSimulate$(EXEEXT): $(example_MMDP_SolveAndSimulate_OBJECTS) $(example_MMDP_SolveAndSimulate_DEPENDENCIES) $(EXTRA_example_MMDP_SolveAndSimulate_DEPENDENCIES) 
 	@rm -f example_MMDP_SolveAndSimulate$(EXEEXT)
 	$(example_MMDP_SolveAndSimulate_LINK) $(example_MMDP_SolveAndSimulate_OBJECTS) $(example_MMDP_SolveAndSimulate_LDADD) $(LIBS)
@@ -659,6 +683,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/example_GMAA-example_GMAA.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/example_JESP-example_JESP.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/example_MMDP_OnlineSolve-example_MMDP_OnlineSolve.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/example_MMDP_SolveAndSimulate-example_MMDP_SolveAndSimulate.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/example_Perseus-example_Perseus.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/example_RandomBGs-example_RandomBGs.Po@am__quote@
@@ -771,6 +796,20 @@ example_MMDP_OnlineSolve-example_MMDP_OnlineSolve.obj: example_MMDP_OnlineSolve.
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='example_MMDP_OnlineSolve.cpp' object='example_MMDP_OnlineSolve-example_MMDP_OnlineSolve.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(example_MMDP_OnlineSolve_CPPFLAGS) $(CPPFLAGS) $(example_MMDP_OnlineSolve_CXXFLAGS) $(CXXFLAGS) -c -o example_MMDP_OnlineSolve-example_MMDP_OnlineSolve.obj `if test -f 'example_MMDP_OnlineSolve.cpp'; then $(CYGPATH_W) 'example_MMDP_OnlineSolve.cpp'; else $(CYGPATH_W) '$(srcdir)/example_MMDP_OnlineSolve.cpp'; fi`
+
+example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.o: example_MMDP_SimulateMCTS.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(example_MMDP_SimulateMCTS_CPPFLAGS) $(CPPFLAGS) $(example_MMDP_SimulateMCTS_CXXFLAGS) $(CXXFLAGS) -MT example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.o -MD -MP -MF $(DEPDIR)/example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.Tpo -c -o example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.o `test -f 'example_MMDP_SimulateMCTS.cpp' || echo '$(srcdir)/'`example_MMDP_SimulateMCTS.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.Tpo $(DEPDIR)/example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='example_MMDP_SimulateMCTS.cpp' object='example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(example_MMDP_SimulateMCTS_CPPFLAGS) $(CPPFLAGS) $(example_MMDP_SimulateMCTS_CXXFLAGS) $(CXXFLAGS) -c -o example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.o `test -f 'example_MMDP_SimulateMCTS.cpp' || echo '$(srcdir)/'`example_MMDP_SimulateMCTS.cpp
+
+example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.obj: example_MMDP_SimulateMCTS.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(example_MMDP_SimulateMCTS_CPPFLAGS) $(CPPFLAGS) $(example_MMDP_SimulateMCTS_CXXFLAGS) $(CXXFLAGS) -MT example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.obj -MD -MP -MF $(DEPDIR)/example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.Tpo -c -o example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.obj `if test -f 'example_MMDP_SimulateMCTS.cpp'; then $(CYGPATH_W) 'example_MMDP_SimulateMCTS.cpp'; else $(CYGPATH_W) '$(srcdir)/example_MMDP_SimulateMCTS.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.Tpo $(DEPDIR)/example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='example_MMDP_SimulateMCTS.cpp' object='example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(example_MMDP_SimulateMCTS_CPPFLAGS) $(CPPFLAGS) $(example_MMDP_SimulateMCTS_CXXFLAGS) $(CXXFLAGS) -c -o example_MMDP_SimulateMCTS-example_MMDP_SimulateMCTS.obj `if test -f 'example_MMDP_SimulateMCTS.cpp'; then $(CYGPATH_W) 'example_MMDP_SimulateMCTS.cpp'; else $(CYGPATH_W) '$(srcdir)/example_MMDP_SimulateMCTS.cpp'; fi`
 
 example_MMDP_SolveAndSimulate-example_MMDP_SolveAndSimulate.o: example_MMDP_SolveAndSimulate.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(example_MMDP_SolveAndSimulate_CPPFLAGS) $(CPPFLAGS) $(example_MMDP_SolveAndSimulate_CXXFLAGS) $(CXXFLAGS) -MT example_MMDP_SolveAndSimulate-example_MMDP_SolveAndSimulate.o -MD -MP -MF $(DEPDIR)/example_MMDP_SolveAndSimulate-example_MMDP_SolveAndSimulate.Tpo -c -o example_MMDP_SolveAndSimulate-example_MMDP_SolveAndSimulate.o `test -f 'example_MMDP_SolveAndSimulate.cpp' || echo '$(srcdir)/'`example_MMDP_SolveAndSimulate.cpp

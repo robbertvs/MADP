@@ -9,6 +9,7 @@ example_JESP \
 example_BFS \
 example_decTigerJESP \
 example_DICEPS \
+example_MMDP_SimulateMCTS \
 example_MMDP_SolveAndSimulate \
 example_RandomBGs \
 example_FOBS_SPUDD_export \
@@ -88,6 +89,15 @@ example_Perseus_DEPENDENCIES = $(MADPLIBS_NORMAL)
 example_Perseus_CPPFLAGS= $(AM_CPPFLAGS) $(CPP_OPTIMIZATION_FLAGS)
 example_Perseus_CXXFLAGS= $(CSTANDARD)
 example_Perseus_CFLAGS=
+
+# Build example_MMDP_SimulateMCTS
+example_MMDP_SimulateMCTS_SOURCES = example_MMDP_SimulateMCTS.cpp
+example_MMDP_SimulateMCTS_LDADD = $(MADPLIBS_NORMAL) $(MADP_LD)
+example_MMDP_SimulateMCTS_LDFLAGS = $(AM_LDFLAGS) 
+example_MMDP_SimulateMCTS_DEPENDENCIES = $(MADPLIBS_NORMAL)
+example_MMDP_SimulateMCTS_CPPFLAGS= $(AM_CPPFLAGS) $(CPP_OPTIMIZATION_FLAGS)
+example_MMDP_SimulateMCTS_CXXFLAGS= $(CSTANDARD)
+example_MMDP_SimulateMCTS_CFLAGS=
 
 # Build example_MMDP_SolveAndSimulate
 example_MMDP_SolveAndSimulate_SOURCES = example_MMDP_SolveAndSimulate.cpp
