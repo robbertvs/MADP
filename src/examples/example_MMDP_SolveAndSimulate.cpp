@@ -1,14 +1,14 @@
-/* This file is part of the Multiagent Decision Process (MADP) Toolbox v0.3. 
+/* This file is part of the Multiagent Decision Process (MADP) Toolbox v0.3.
  *
  * The majority of MADP is free software released under GNUP GPL v.3. However,
- * some of the included libraries are released under a different license. For 
- * more information, see the included COPYING file. For other information, 
+ * some of the included libraries are released under a different license. For
+ * more information, see the included COPYING file. For other information,
  * please refer to the included README file.
  *
  * This file has been written and/or modified by the following people:
  *
- * Frans Oliehoek 
- * Matthijs Spaan 
+ * Frans Oliehoek
+ * Matthijs Spaan
  *
  * For contact information please see the included AUTHORS file.
  */
@@ -90,7 +90,33 @@ int main(int argc, char **argv)
         DecPOMDPDiscreteInterface* decpomdp = GetDecPOMDPDiscreteInterfaceFromArgs(args);
         cout << "...done."<<endl;
 
-        PlanningUnitDecPOMDPDiscrete *np = new NullPlanner(args.horizon, decpomdp);
+        srand(time(NULL));
+
+        size_t nrStates = decpomdp->GetNrStates();
+        size_t nrActions = decpomdp->GetNrJointActions();
+        size_t initialState = decpomdp->SampleInitialState();
+
+		double discount = decpomdp->GetDiscount();
+		double maxReward = -1000; // Needs to be Double min value
+		
+		cout << "States " << nrStates <<
+			", Actions " << nrActions <<
+			", Initial State " << initialState << endl;
+		
+        for(int i = 0; i < 100; i++) {
+            size_t currentState = initialState;
+			double sumReward = 0;
+            for(int j = 0; j < 100; j++) {
+				int action = rand() % nrActions;
+                currentState = decpomdp->SampleSuccessorState(currentState, action);
+				sumReward += decpomdp->GetReward(currentState, action)*pow(discount, j);
+            }
+			if (sumReward > maxReward) maxReward = sumReward;
+			cout << "Run " << i << " with reward " << sumReward << endl;
+        }
+		cout << "Maximum reward found is " << maxReward << endl;
+
+        /*PlanningUnitDecPOMDPDiscrete *np = new NullPlanner(args.horizon, decpomdp);
         MDPValueIteration vi(*np);
         vi.Plan();
         QTable q = vi.GetQTable(0); //<- infinite horizon, so get 1 value function of stage 0
@@ -103,7 +129,7 @@ int main(int argc, char **argv)
         double r;
         r = runOneSimulation(q, np, sim );
         avgRewards.push_back(r);
-        cout << "Avg rewards: " << SoftPrintVector(avgRewards) << endl;
+        cout << "Avg rewards: " << SoftPrintVector(avgRewards) << endl;*/
 
     }
     catch(E& e){ e.Print(); }
