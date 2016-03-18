@@ -1,4 +1,9 @@
 
+# extension-less files
+*
+!/**/
+!*.*
+
 # Created by https://www.gitignore.io/api/c++
 
 ### C++ ###
@@ -30,3 +35,17 @@
 *.exe
 *.out
 *.app
+
+# debs and libs
+**/.deps/
+**/.libs/
+
+# configuration
+config.*
+\[config.h\].in
+
+# other
+Makefile
+libtool
+stamp-h1
+**.dirstamp
