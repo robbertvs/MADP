@@ -182,6 +182,20 @@ double doActions(tree_node currentNode, int horizon)
   sumReward += decpomdp->GetReward(currentState, action)*pow(discount, j);
 }
 
+double simulation(DecPOMDPDiscreteInterface* decpomdp, tree_node startNode, int horizon) {
+	int currentState = startNode.state;
+	int nrActions = decpomdp->GetNrJointActions();
+	double reward = 0;
+
+	for (int i = 0; i < horizon; i++) {
+		int action = rand() % nrActions;
+		currentState = decpomdp->SampleSuccessorState(currentState, action);
+		reward += pow(discount, i) * decpomdp->GetReward(currentState, action);
+	}
+
+	return reward;
+}
+
 tree_node newNode(double value)
 {
   tree_node node->average = value;
@@ -190,6 +204,7 @@ tree_node newNode(double value)
 
 struct tree_node
 {
+  int state;
   int iterations;
   double average;
   std::map<int, tree_node> children;
