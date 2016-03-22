@@ -73,8 +73,8 @@ private:
 	int state;
 };
 
-double simulation(DecPOMDPDiscreteInterface* decpomdp, tree_node startNode, int horizon) {
-	int currentState = startNode.state;
+double simulation(DecPOMDPDiscreteInterface* decpomdp, tree_node* startNode, int horizon) {
+	int currentState = startNode->state;
 	int nrActions = decpomdp->GetNrJointActions();
 	double discount = decpomdp->GetDiscount();
 	double reward = 0;
@@ -88,7 +88,7 @@ double simulation(DecPOMDPDiscreteInterface* decpomdp, tree_node startNode, int 
 	return reward;
 }
 
-double MCTS(DecPOMDPDiscreteInterface* decpomdp, tree_node currentNode, int horizon)
+double MCTS(DecPOMDPDiscreteInterface* decpomdp, tree_node* currentNode, int horizon)
 {
 	if (horizon <= 0) {
 		return 0;
@@ -97,24 +97,28 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, tree_node currentNode, int hori
 		double discount = decpomdp->GetDiscount();
 		int nrActions = decpomdp->GetNrJointActions();
 		int action = rand() % nrActions;
-		int nextState = decpomdp->SampleSuccessorState(currentNode.state, action);
-		double actionReward = decpomdp->GetReward(currentNode.state, action);
-		list<tree_node> stateList = currentNode.children[action]; // Will instantiate new object if not done this action before
+		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action);
+		double actionReward = decpomdp->GetReward(currentNode->state, action);
+		list<tree_node> stateList = currentNode->children[action]; // Will instantiate new object if not done this action before
 		list<tree_node>::iterator result = find_if(stateList.begin(), stateList.end(), find_by_state(nextState));
 		if (result != stateList.end()) { // Gotten here before, go deeper
 			tree_node state = *result;
-			double deepReward = MCTS(decpomdp, state, horizon - 1) * discount;
+			double deepReward = MCTS(decpomdp, &state, horizon - 1) * discount;
 			double reward = actionReward + deepReward;
 			state.average = (state.iterations * state.average + reward) / (state.iterations + 1);
 			state.iterations++;
+			cout << state.average << endl;
+			return state.average;
 		}
 		else { // Never gotten here before
 			tree_node state = newNode(nextState);
-			double simulationReward = simulation(decpomdp, state, horizon - 1) * discount;
+			double simulationReward = simulation(decpomdp, &state, horizon - 1) * discount;
 			double reward = actionReward + simulationReward;
 			state.average = reward;
 			state.iterations = 1;
 			stateList.push_back(state);
+			cout << state.average << endl;
+			return state.average;
 		}
 	}
 }
@@ -189,11 +193,22 @@ int main(int argc, char **argv)
 		maxReward = -std::numeric_limits<double>::max();
 		tree_node root = newNode(initialState);
 		// MCTS
-		for (int i = 0; i < 10000; i++) {
-			double reward = MCTS(decpomdp, root, args.horizon);
+		for (int i = 0; i < 10; i++) {
+			double reward = MCTS(decpomdp, &root, args.horizon);
 			if (reward > maxReward) maxReward = reward;
-			//cout << "Run " << i << " with reward " << sumReward << endl;
 		}
+		cout << "Root is in state " << root.state << " and has average " << root.average << " from " << root.iterations << " iterations." << endl;
+		for (map<int, list<tree_node> >::iterator ii = root.children.begin(); ii != root.children.begin(); ++ii)
+		{
+			cout << (*ii).first << ": " << endl;
+
+			for (list<tree_node>::iterator jj = (*ii).second.begin(); jj != (*ii).second.end(); ++jj)
+			{
+				cout << "\tNode is in state " << (*jj).state << " and has average " << (*jj).average << " from " << (*jj).iterations << " iterations.";
+				
+			}
+		}
+
 		cout << "Maximum MCTS search reward found is " << maxReward << endl;
 	}
 	catch(E& e){ e.Print(); }
