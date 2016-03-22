@@ -20,6 +20,8 @@
 
 #include "argumentHandlers.h"
 #include "argumentUtils.h"
+#include <list>
+#include <algorithm>
 using namespace std;
 using namespace ArgumentUtils;
 
@@ -42,36 +44,85 @@ const struct argp_child childVector[] = {
 };
 #include "argumentHandlersPostChild.h"
 
+struct tree_node
+{
+	int state;
+	int iterations;
+	double average;
+	map<int, list<tree_node> > children; //Map of action to list of children
+	//bool operator()(const tree_node & node) {
+	//	return node.state == state && node.iterations == iterations && node.average == average;
+	//}
+};
+
+tree_node newNode(int state)
+{
+	tree_node node;
+	node.state = state;
+	node.iterations = 0;
+	node.average = 0.0;
+	return node;
+}
+
+struct find_by_state {
+	find_by_state(const int state) : state(state) {}
+	bool operator()(const tree_node & node) {
+		return node.state == state;
+	}
+private:
+	int state;
+};
+
+double simulation(DecPOMDPDiscreteInterface* decpomdp, tree_node startNode, int horizon) {
+	int currentState = startNode.state;
+	int nrActions = decpomdp->GetNrJointActions();
+	double discount = decpomdp->GetDiscount();
+	double reward = 0;
+
+	for (int i = 0; i < horizon; i++) {
+		int action = rand() % nrActions;
+		currentState = decpomdp->SampleSuccessorState(currentState, action);
+		reward += pow(discount, i) * decpomdp->GetReward(currentState, action);
+	}
+
+	return reward;
+}
+
+double MCTS(DecPOMDPDiscreteInterface* decpomdp, tree_node currentNode, int horizon)
+{
+	if (horizon <= 0) {
+		return 0;
+	}
+	else {
+		double discount = decpomdp->GetDiscount();
+		int nrActions = decpomdp->GetNrJointActions();
+		int action = rand() % nrActions;
+		int nextState = decpomdp->SampleSuccessorState(currentNode.state, action);
+		double actionReward = decpomdp->GetReward(currentNode.state, action);
+		list<tree_node> stateList = currentNode.children[action]; // Will instantiate new object if not done this action before
+		list<tree_node>::iterator result = find_if(stateList.begin(), stateList.end(), find_by_state(nextState));
+		if (result != stateList.end()) { // Gotten here before, go deeper
+			tree_node state = *result;
+			double deepReward = MCTS(decpomdp, state, horizon - 1) * discount;
+			double reward = actionReward + deepReward;
+			state.average = (state.iterations * state.average + reward) / (state.iterations + 1);
+			state.iterations++;
+		}
+		else { // Never gotten here before
+			tree_node state = newNode(nextState);
+			double simulationReward = simulation(decpomdp, state, horizon - 1) * discount;
+			double reward = actionReward + simulationReward;
+			state.average = reward;
+			state.iterations = 1;
+			stateList.push_back(state);
+		}
+	}
+}
+
 //BFS currently does not take into account the stochastic nature of the environment.
 double BFS(DecPOMDPDiscreteInterface* decpomdp, long steps, int state) {
     if (steps <= 0)
     return 0;
-
-    int nrActions = decpomdp->GetNrJointActions();
-    long stepsToDivide = floor(double(steps) / nrActions);
-    double discount = decpomdp->GetDiscount();
-    double maxReward = -std::numeric_limits<double>::max();
-
-    for (int i = 0; i < nrActions; i++) {
-        int action = i;
-        int newState = decpomdp->SampleSuccessorState(state, action);
-        double actionReward = decpomdp->GetReward(state, action);
-        double bfsReward = BFS(decpomdp, stepsToDivide, newState);
-        double reward = actionReward + bfsReward*discount;
-        if (steps == 10000) {
-            cout << "Choosing action " << action << " in state " << state << " gives " << actionReward << " immediate pay-off. Combined with the rest, the pay-off becomes " << reward
-            << endl;
-        }
-        if (reward > maxReward) maxReward = reward;
-    }
-
-    return maxReward;
-}
-
-double MCTS(DecPOMDPDiscreteInterface* decpomdp, long steps, int state) {
-    if (steps <= 0)
-    return 0;
-
 
     int nrActions = decpomdp->GetNrJointActions();
     long stepsToDivide = floor(double(steps) / nrActions);
@@ -101,101 +152,51 @@ int main(int argc, char **argv)
 
     try
     {
-        cout << "Instantiating the problem..."<<endl;
-        DecPOMDPDiscreteInterface* decpomdp = GetDecPOMDPDiscreteInterfaceFromArgs(args);
-        cout << "...done."<<endl;
+		cout << "Instantiating the problem..."<<endl;
+		DecPOMDPDiscreteInterface* decpomdp = GetDecPOMDPDiscreteInterfaceFromArgs(args);
+		cout << "...done."<<endl;
 
-        //srand(time(NULL));
-        srand(42);
+		//srand(time(NULL));
+		srand(42);
 
-        //Build transition tree (I don't think the domains are large enough that this won't work)
-        int nrStates = decpomdp->GetNrStates();
-        int nrActions = decpomdp->GetNrJointActions();
+		//Build transition tree (I don't think the domains are large enough that this won't work)
+		int nrStates = decpomdp->GetNrStates();
+		int nrActions = decpomdp->GetNrJointActions();
 
-        map<int, map<int, map<int, double> > > tree;
-        for (int i = 0; i < nrStates; i++) {
-            map<int, map<int, double> > stateMap;
-            for (int j = 0; j < nrActions; j++) {
-                map<int, double> stateActionMap;
-                for (int k = 0; k < nrStates; k++) {
-                    double p = decpomdp->GetTransitionProbability(i, j, k);
-                    if (p > 0) stateActionMap[k] = p;
-                }
-                stateMap[j] = stateActionMap;
-            }
-            tree[i] = stateMap;
-        }
+		size_t initialState = decpomdp->SampleInitialState();
 
-        for (map<int, map<int, map<int, double> > >::iterator ii = tree.begin(); ii != tree.end(); ++ii)
-        {
-            cout << "Instantiating the problem..."<<endl;
-            DecPOMDPDiscreteInterface* decpomdp = GetDecPOMDPDiscreteInterfaceFromArgs(args);
-            cout << "...done."<<endl;
+		// Pure BFS. Takes a long time, answer is only marginally better than pure random.
+		long steps = pow(nrActions, args.horizon);
+		cout << "Maximum BFS reward found (" << steps << " steps) is " << BFS(decpomdp, steps, initialState) << endl;
 
-            //srand(time(NULL));
-            srand(42);
+		// Pure random
+		double discount = decpomdp->GetDiscount();
+		double maxReward = -std::numeric_limits<double>::max();
 
-            //Build transition tree (I don't think the domains are large enough that this won't work)
-            int nrStates = decpomdp->GetNrStates();
-            int nrActions = decpomdp->GetNrJointActions();
+		for (int i = 0; i < 10000; i++) {
+			size_t currentState = initialState;
+			double sumReward = 0;
+			for (int j = 0; j < args.horizon; j++) {
+				int action = rand() % nrActions;
+				currentState = decpomdp->SampleSuccessorState(currentState, action);
+				sumReward += decpomdp->GetReward(currentState, action)*pow(discount, j);
+			}
+			if (sumReward > maxReward) maxReward = sumReward;
+			//cout << "Run " << i << " with reward " << sumReward << endl;
+		}
+		cout << "Maximum random search reward found is " << maxReward << endl;
+		
+		maxReward = -std::numeric_limits<double>::max();
+		tree_node root = newNode(initialState);
+		// MCTS
+		for (int i = 0; i < 10000; i++) {
+			double reward = MCTS(decpomdp, root, args.horizon);
+			if (reward > maxReward) maxReward = reward;
+			//cout << "Run " << i << " with reward " << sumReward << endl;
+		}
+		cout << "Maximum MCTS search reward found is " << maxReward << endl;
+	}
+	catch(E& e){ e.Print(); }
 
-            size_t initialState = decpomdp->SampleInitialState();
-
-            // Pure BFS. Takes a long time, answer is only marginally better than pure random.
-            long steps = pow(nrActions, args.horizon);
-            cout << "Maximum BFS reward found (" << steps << " steps) is " << BFS(decpomdp, steps, initialState) << endl;
-
-            // Pure random
-            double discount = decpomdp->GetDiscount();
-            double maxReward = -std::numeric_limits<double>::max();
-            tree_node root = newNode(0.0);
-
-            for(int i = 0; i < 10000; i++) {
-                size_t currentState = initialState;
-                tree_node currentNode = root;
-                double sumReward = 0;
-                double sumReward = doActions(decpomdp, currentNode, horizon);
-                if (sumReward > maxReward) maxReward = sumReward;
-                //cout << "Run " << i << " with reward " << sumReward << endl;
-            }
-            cout << "Maximum random search reward found is " << maxReward << endl;
-        }
-        catch(E& e){ e.Print(); }
-
-        return(0);
-    }
-
-    double doActions(DecPOMDPDiscreteInterface* decpomdp, tree_node currentNode, int horizon)
-    {
-        // should do random move
-        if(horizon == 0)
-        return 0;
-
-        currentNode.iterations++;
-
-        int action = rand() % nrActions;
-        if(!currentNode.children.contains(action))
-        {
-            currentNode.children.insert(action, newNode(0));
-        }
-        currentState = decpomdp->SampleSuccessorState(currentState, action);
-        tree_node nextNode = currentNode.children.get(action);
-        if(!nextNode.children.contains(currentState))
-        nextNode.children.add(newNode(0));
-        sumReward = decpomdp->GetReward(currentState, action)*pow(discount, j);
-
-    }
-
-    tree_node newNode(double value)
-    {
-        tree_node node->average = value;
-        return node;
-    }
-
-    struct tree_node
-    {
-        int state;
-        int iterations;
-        double average;
-        std::map<int, tree_node> children;
-    };
+	return(0);
+}
