@@ -128,6 +128,7 @@ int main(int argc, char **argv)
 
     for (map<int, map<int, map<int, double> > >::iterator ii = tree.begin(); ii != tree.end(); ++ii)
     {
+<<<<<<< Updated upstream
         cout << "Instantiating the problem..."<<endl;
         DecPOMDPDiscreteInterface* decpomdp = GetDecPOMDPDiscreteInterfaceFromArgs(args);
         cout << "...done."<<endl;
@@ -140,6 +141,21 @@ int main(int argc, char **argv)
 		int nrActions = decpomdp->GetNrJointActions();
 
 		size_t initialState = decpomdp->SampleInitialState();
+=======
+      cout << (*ii).first << ": " << endl;
+
+      for (map<int, map<int, double> >::iterator jj = (*ii).second.begin(); jj != (*ii).second.end(); ++jj)
+      {
+        cout << "\t" << (*jj).first << ": " << endl;
+        for (map<int, double>::iterator kk = (*jj).second.begin(); kk != (*jj).second.end(); ++kk)
+        {
+          cout << "\t\t" << (*kk).first << ": " << (*kk).second << endl;
+        }
+      }
+    }
+
+    size_t initialState = decpomdp->SampleInitialState();
+>>>>>>> Stashed changes
 
     // Pure BFS. Takes a long time, answer is only marginally better than pure random.
     long steps = pow(nrActions, args.horizon);
@@ -154,13 +170,56 @@ int main(int argc, char **argv)
       size_t currentState = initialState;
       tree_node currentNode = root;
       double sumReward = 0;
+<<<<<<< Updated upstream
+      double sumReward = doActions(decpomdp, currentState, currentNode, horizon);
+=======
       double sumReward = doActions(currentState, currentNode, horizon);
+>>>>>>> Stashed changes
       if (sumReward > maxReward) maxReward = sumReward;
       //cout << "Run " << i << " with reward " << sumReward << endl;
     }
     cout << "Maximum random search reward found is " << maxReward << endl;
   }
   catch(E& e){ e.Print(); }
+<<<<<<< Updated upstream
+
+  return(0);
+}
+
+double doActions(tree_node currentNode, int horizon)
+{
+  // should do random move
+  if(horizon == 0)
+    return 0;
+
+  currentNode.iterations++;
+
+  int action = rand() % nrActions;
+  if(!currentNode.children.contains(action))
+  {
+    currentNode.children.insert(action, newNode(0));
+  }
+  currentState = decpomdp->SampleSuccessorState(currentState, action);
+  tree_node nextNode = currentNode.children.get(action);
+  sumReward = decpomdp->GetReward(currentState, action)*pow(discount, j);
+
+}
+
+double simulation(DecPOMDPDiscreteInterface* decpomdp, tree_node startNode, int horizon) {
+	int currentState = startNode.state;
+	int nrActions = decpomdp->GetNrJointActions();
+	double reward = 0;
+
+	for (int i = 0; i < horizon; i++) {
+		int action = rand() % nrActions;
+		currentState = decpomdp->SampleSuccessorState(currentState, action);
+		reward += pow(discount, i) * decpomdp->GetReward(currentState, action);
+	}
+
+	return reward;
+}
+
+=======
 
   return(0);
 }
@@ -182,20 +241,7 @@ double doActions(tree_node currentNode, int horizon)
   sumReward += decpomdp->GetReward(currentState, action)*pow(discount, j);
 }
 
-double simulation(DecPOMDPDiscreteInterface* decpomdp, tree_node startNode, int horizon) {
-	int currentState = startNode.state;
-	int nrActions = decpomdp->GetNrJointActions();
-	double reward = 0;
-
-	for (int i = 0; i < horizon; i++) {
-		int action = rand() % nrActions;
-		currentState = decpomdp->SampleSuccessorState(currentState, action);
-		reward += pow(discount, i) * decpomdp->GetReward(currentState, action);
-	}
-
-	return reward;
-}
-
+>>>>>>> Stashed changes
 tree_node newNode(double value)
 {
   tree_node node->average = value;
@@ -204,7 +250,10 @@ tree_node newNode(double value)
 
 struct tree_node
 {
+<<<<<<< Updated upstream
   int state;
+=======
+>>>>>>> Stashed changes
   int iterations;
   double average;
   std::map<int, tree_node> children;
