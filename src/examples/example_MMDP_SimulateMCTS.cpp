@@ -151,6 +151,19 @@ double BFS(DecPOMDPDiscreteInterface* decpomdp, long steps, int state) {
     return maxReward;
 }
 
+void printTree(tree_node* node, int depth) {
+	cout << string(depth, '\t') << node->toString() << endl;
+	for (map<int, list<tree_node> >::iterator ii = node->children.begin(); ii != node->children.end(); ++ii)
+	{
+		cout << string(depth, '\t') << ii->first << ": " << endl;
+
+		for (list<tree_node>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
+		{
+			printTree(&*jj, depth+1);
+		}
+	}
+}
+
 int main(int argc, char **argv)
 {
     ArgumentHandlers::Arguments args;
@@ -196,20 +209,11 @@ int main(int argc, char **argv)
 		tree_node r = newNode(initialState);
 		tree_node* root = &r;
 		// MCTS
-		for (int i = 0; i < 10000; i++) {
+		for (int i = 0; i < 100; i++) {
 			double reward = MCTS(decpomdp, root, args.horizon);
 			if (reward > maxReward) maxReward = reward;
 		}
-		cout << "Root: " << root->toString() << endl;
-		for (map<int, list<tree_node> >::iterator ii = root->children.begin(); ii != root->children.end(); ++ii)
-		{
-			cout << ii->first << ": " << endl;
-
-			for (list<tree_node>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
-			{
-				cout << "\t" << jj->toString() << endl;
-			}
-		}
+		printTree(root, 0);
 
 		cout << "Maximum MCTS search reward found is " << maxReward << endl;
 	}
