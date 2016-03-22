@@ -128,7 +128,7 @@ int main(int argc, char **argv)
 		for (map<int, map<int, map<int, double> > >::iterator ii = tree.begin(); ii != tree.end(); ++ii)
 		{
 			cout << (*ii).first << ": " << endl;
-			
+
 			for (map<int, map<int, double> >::iterator jj = (*ii).second.begin(); jj != (*ii).second.end(); ++jj)
 			{
 				cout << "\t" << (*jj).first << ": " << endl;
@@ -139,10 +139,8 @@ int main(int argc, char **argv)
 			}
 		}
 
+    size_t initialState = decpomdp->SampleInitialState();
 
-		
-        size_t initialState = decpomdp->SampleInitialState();
-		
 		// Pure BFS. Takes a long time, answer is only marginally better than pure random.
 		long steps = pow(nrActions, args.horizon);
 		cout << "Maximum BFS reward found (" << steps << " steps) is " << BFS(decpomdp, steps, initialState) << endl;
@@ -168,3 +166,10 @@ int main(int argc, char **argv)
 
     return(0);
 }
+
+struct tree_node
+   {
+   int iterations;
+   double average;
+   std::vector<tree_node> children;
+   };
