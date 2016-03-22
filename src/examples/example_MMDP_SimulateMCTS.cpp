@@ -16,6 +16,7 @@
 #include <iostream>
 
 #include "DecPOMDPDiscrete.h"
+#include "TreeNode.h"
 
 #include "argumentHandlers.h"
 #include "argumentUtils.h"
@@ -111,35 +112,7 @@ int main(int argc, char **argv)
 		int nrStates = decpomdp->GetNrStates();
 		int nrActions = decpomdp->GetNrJointActions();
 
-		map<int, map<int, map<int, double> > > tree;
-		for (int i = 0; i < nrStates; i++) {
-			map<int, map<int, double> > stateMap;
-			for (int j = 0; j < nrActions; j++) {
-				map<int, double> stateActionMap;
-				for (int k = 0; k < nrStates; k++) {
-					double p = decpomdp->GetTransitionProbability(i, j, k);
-					if (p > 0) stateActionMap[k] = p;
-				}
-				stateMap[j] = stateActionMap;
-			}
-			tree[i] = stateMap;
-		}
-
-		for (map<int, map<int, map<int, double> > >::iterator ii = tree.begin(); ii != tree.end(); ++ii)
-		{
-			cout << (*ii).first << ": " << endl;
-
-			for (map<int, map<int, double> >::iterator jj = (*ii).second.begin(); jj != (*ii).second.end(); ++jj)
-			{
-				cout << "\t" << (*jj).first << ": " << endl;
-				for (map<int, double>::iterator kk = (*jj).second.begin(); kk != (*jj).second.end(); ++kk)
-				{
-					cout << "\t\t" << (*kk).first << ": " << (*kk).second << endl;
-				}
-			}
-		}
-
-    size_t initialState = decpomdp->SampleInitialState();
+		size_t initialState = decpomdp->SampleInitialState();
 
 		// Pure BFS. Takes a long time, answer is only marginally better than pure random.
 		long steps = pow(nrActions, args.horizon);
@@ -168,8 +141,8 @@ int main(int argc, char **argv)
 }
 
 struct tree_node
-   {
-   int iterations;
-   double average;
-   std::vector<tree_node> children;
-   };
+{
+	int iterations;
+	double average;
+	std::vector<tree_node> children;
+};
