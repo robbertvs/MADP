@@ -196,18 +196,18 @@ int main(int argc, char **argv)
 		tree_node r = newNode(initialState);
 		tree_node* root = &r;
 		// MCTS
-		for (int i = 0; i < 100; i++) {
+		for (int i = 0; i < 10000; i++) {
 			double reward = MCTS(decpomdp, root, args.horizon);
 			if (reward > maxReward) maxReward = reward;
 		}
 		cout << "Root: " << root->toString() << endl;
-		for (map<int, list<tree_node> >::iterator ii = root->children.begin(); ii != root->children.begin(); ++ii)
+		for (map<int, list<tree_node> >::iterator ii = root->children.begin(); ii != root->children.end(); ++ii)
 		{
-			cout << (*ii).first << ": " << endl;
+			cout << ii->first << ": " << endl;
 
-			for (list<tree_node>::iterator jj = (*ii).second.begin(); jj != (*ii).second.end(); ++jj)
+			for (list<tree_node>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
 			{
-				cout << "\t" << root->toString() << endl;				
+				cout << "\t" << jj->toString() << endl;
 			}
 		}
 
