@@ -49,6 +49,8 @@ struct tree_node
 	int state;
 	int iterations;
 	double average;
+	double min;
+	double max;
 	map<int, list<tree_node> > children; //Map of action to list of children
 	//bool operator()(const tree_node & node) {
 	//	return node.state == state && node.iterations == iterations && node.average == average;
@@ -66,6 +68,8 @@ tree_node newNode(int state)
 	node.state = state;
 	node.iterations = 0;
 	node.average = 0.0;
+	node.min = 10^10;
+	node.max = -10^10;
 	return node;
 }
 
@@ -93,6 +97,39 @@ double simulation(DecPOMDPDiscreteInterface* decpomdp, tree_node* startNode, int
 	return reward;
 }
 
+// Select an action using the UCT bestchild algorithm
+int select_action(tree_node* currentNode, DecPOMDPDiscreteInterface* decpomdp)
+{
+	double exploration = sqrt(2);
+	int nrActions = decpomdp->GetNrJointActions();
+	double maxUct = 0;
+	int selectedAction = 0;
+
+	for(int action = 0; action<nrActions; action++)
+	{
+		int iterations = 0;
+		double sumValue = 0.0;
+		for (list<tree_node>::iterator child=currentNode->children[action].begin(); child != currentNode->children[action].end(); ++child)
+		{
+			iterations += child->iterations;
+			sumValue += child->iterations * child->average;
+		}
+		double averageValue = sumValue / iterations;
+		double normalizedValue = (averageValue - currentNode->min) / (currentNode->max - currentNode->min);
+		double uctValue = normalizedValue + 2*exploration*sqrt(2*log(currentNode->iterations)/iterations);
+		if(iterations==0)
+		{
+			uctValue = 10000+rand()%1000; // explore new actions first.
+		}
+		if(uctValue > maxUct)
+		{
+			selectedAction = action;
+			maxUct = uctValue;
+		}
+	}
+	return selectedAction;
+}
+
 double MCTS(DecPOMDPDiscreteInterface* decpomdp, tree_node* currentNode, int horizon)
 {
 	if (horizon <= 0) {
@@ -101,7 +138,7 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, tree_node* currentNode, int hor
 	else {
 		double discount = decpomdp->GetDiscount();
 		int nrActions = decpomdp->GetNrJointActions();
-		int action = rand() % nrActions;
+		int action = select_action(currentNode, decpomdp);
 		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action);
 		double actionReward = decpomdp->GetReward(currentNode->state, action);
 		double reward;
@@ -204,7 +241,7 @@ int main(int argc, char **argv)
 			//cout << "Run " << i << " with reward " << sumReward << endl;
 		}
 		cout << "Maximum random search reward found is " << maxReward << endl;
-		
+
 		maxReward = -std::numeric_limits<double>::max();
 		tree_node r = newNode(initialState);
 		tree_node* root = &r;
