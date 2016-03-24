@@ -82,19 +82,18 @@ private:
 	int state;
 };
 
-double simulation(DecPOMDPDiscreteInterface* decpomdp, tree_node* startNode, int horizon) {
+double simulation(DecPOMDPDiscreteInterface* decpomdp, int winningState, int losingState, tree_node* startNode, int horizon) {
 	int currentState = startNode->state;
 	int nrActions = decpomdp->GetNrJointActions();
-	double discount = decpomdp->GetDiscount();
-	double reward = 0;
 
 	for (int i = 0; i < horizon; i++) {
 		int action = rand() % nrActions;
 		currentState = decpomdp->SampleSuccessorState(currentState, action);
-		reward += pow(discount, i) * decpomdp->GetReward(currentState, action);
+		if (currentState == winningState) return 1.0;
+		if (currentState == losingState) return 0.0;
 	}
 
-	return reward;
+	return 0.0;
 }
 
 // Select an action using the UCT bestchild algorithm
@@ -130,30 +129,34 @@ int select_action(tree_node* currentNode, DecPOMDPDiscreteInterface* decpomdp)
 	return selectedAction;
 }
 
-double MCTS(DecPOMDPDiscreteInterface* decpomdp, tree_node* currentNode, int horizon)
+double MCTS(DecPOMDPDiscreteInterface* decpomdp, int winningState, int losingState, tree_node* currentNode, int horizon)
 {
 	if (horizon <= 0) {
 		return 0;
 	}
 	else {
-		double discount = decpomdp->GetDiscount();
 		int nrActions = decpomdp->GetNrJointActions();
 		int action = select_action(currentNode, decpomdp);
 		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action);
-		double actionReward = decpomdp->GetReward(currentNode->state, action);
 		double reward;
-		list<tree_node>* stateList = &(currentNode->children[action]); // Will instantiate new object if not done this action before
-		list<tree_node>::iterator result = find_if(stateList->begin(), stateList->end(), find_by_state(nextState));
-		if (result != stateList->end()) { // Gotten here before, go deeper
-			tree_node* state = &(*result); // Magic to get rid of the iterator
-			double deepReward = MCTS(decpomdp, state, horizon - 1) * discount;
-			reward = actionReward + deepReward;
+		if (nextState == winningState) {
+			reward = 1.0;
 		}
-		else { // Never gotten here before
-			tree_node state = newNode(nextState);
-			double simulationReward = simulation(decpomdp, &state, horizon - 1) * discount;
-			reward = actionReward + simulationReward;
-			stateList->push_back(state);
+		else if (nextState == losingState) {
+			reward = 0.0;
+		}
+		else {
+			list<tree_node>* stateList = &(currentNode->children[action]); // Will instantiate new object if not done this action before
+			list<tree_node>::iterator result = find_if(stateList->begin(), stateList->end(), find_by_state(nextState));
+			if (result != stateList->end()) { // Gotten here before, go deeper
+				tree_node* state = &(*result); // Magic to get rid of the iterator
+				reward = MCTS(decpomdp, winningState, losingState, state, horizon - 1);
+			}
+			else { // Never gotten here before
+				tree_node state = newNode(nextState);
+				reward = simulation(decpomdp, winningState, losingState, &state, horizon - 1);
+				stateList->push_back(state);
+			}
 		}
 
 		currentNode->average = (currentNode->iterations * currentNode->average + reward) / (currentNode->iterations + 1);
@@ -188,15 +191,17 @@ double BFS(DecPOMDPDiscreteInterface* decpomdp, long steps, int state) {
     return maxReward;
 }
 
-void printTree(tree_node* node, int depth) {
+void printTree(tree_node* node, int depth, int maxDepth) {
 	cout << string(depth, '\t') << node->toString() << endl;
-	for (map<int, list<tree_node> >::iterator ii = node->children.begin(); ii != node->children.end(); ++ii)
-	{
-		cout << string(depth, '\t') << ii->first << ": " << endl;
-
-		for (list<tree_node>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
+	if (maxDepth == 0 || depth < maxDepth) {
+		for (map<int, list<tree_node> >::iterator ii = node->children.begin(); ii != node->children.end(); ++ii)
 		{
-			printTree(&*jj, depth+1);
+			cout << string(depth, '\t') << ii->first << ": " << endl;
+
+			for (list<tree_node>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
+			{
+				printTree(&*jj, depth + 1, maxDepth);
+			}
 		}
 	}
 }
@@ -215,15 +220,35 @@ int main(int argc, char **argv)
 		//srand(time(NULL));
 		srand(42);
 
-		//Build transition tree (I don't think the domains are large enough that this won't work)
 		int nrStates = decpomdp->GetNrStates();
 		int nrActions = decpomdp->GetNrJointActions();
+		
+		double maxStateReward = -std::numeric_limits<double>::max();
+		double minStateReward = std::numeric_limits<double>::max();
+		int winningState = 0;
+		int losingState = 0;
+		for (int i = 0; i < nrStates; i++) {
+			double reward = 0;
+			for (int j = 0; j < nrActions; j++) {
+				reward += decpomdp->GetReward(i, j);
+			}
+			reward = reward / nrStates;
+			if (reward > maxStateReward) {
+				maxStateReward = reward;
+				winningState = i;
+			}
+			if (reward < minStateReward) {
+				minStateReward = reward;
+				losingState = i;
+			}
+		}
+		cout << "State " << winningState << " is the winning state and " << losingState << " is the losing state" << endl;
 
 		size_t initialState = decpomdp->SampleInitialState();
 
 		// Pure BFS. Takes a long time, answer is only marginally better than pure random.
-		long steps = pow(nrActions, args.horizon);
-		cout << "Maximum BFS reward found (" << steps << " steps) is " << BFS(decpomdp, steps, initialState) << endl;
+		//long steps = pow(nrActions, args.horizon);
+		//cout << "Maximum BFS reward found (" << steps << " steps) is " << BFS(decpomdp, steps, initialState) << endl;
 
 		// Pure random
 		double discount = decpomdp->GetDiscount();
@@ -246,11 +271,11 @@ int main(int argc, char **argv)
 		tree_node r = newNode(initialState);
 		tree_node* root = &r;
 		// MCTS
-		for (int i = 0; i < 100; i++) {
-			double reward = MCTS(decpomdp, root, args.horizon);
+		for (int i = 0; i < 10000; i++) {
+			double reward = MCTS(decpomdp, winningState, losingState, root, args.horizon);
 			if (reward > maxReward) maxReward = reward;
 		}
-		printTree(root, 0);
+		printTree(root, 0, 2);
 
 		cout << "Maximum MCTS search reward found is " << maxReward << endl;
 	}
