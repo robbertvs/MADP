@@ -51,49 +51,84 @@ struct tree_node
 	double average;
 	double min;
 	double max;
-	map<int, list<tree_node> > children; //Map of action to list of children
-	//bool operator()(const tree_node & node) {
-	//	return node.state == state && node.iterations == iterations && node.average == average;
-	//}
+	bool isWinning;
+	bool isLosing;
+	map<int, list<tree_node*> > children; //Map of action to list of children
+	bool operator==(const tree_node &other) const {
+		return state == other.state;
+	}
 	string toString() {
 		ostringstream os;
 		os << "Node is in state " << state << " and has average " << average << " from " << iterations << " iterations.";
 		return os.str();
 	}
+	tree_node(int s=-1) { // Default called by map
+		state = s;
+		iterations = 0;
+		average = 0.0;
+		min = 10 ^ 10;
+		max = -10 ^ 10;
+		isWinning = false;
+		isLosing = false;
+	}
 };
 
-tree_node newNode(int state)
-{
-	tree_node node;
-	node.state = state;
-	node.iterations = 0;
-	node.average = 0.0;
-	node.min = 10^10;
-	node.max = -10^10;
-	return node;
+tree_node* getNode(map<int, tree_node*> *states, int state) {
+	map<int, tree_node*>::iterator tryState = states->find(state);
+	if (tryState == states->end()) {
+		cout << "Making new node with state " << state << endl;
+		tree_node* node = new tree_node(state);
+		(*states)[state] = node;
+		return node;
+	}
+	else {
+		return tryState->second;
+	}
 }
 
-struct find_by_state {
-	find_by_state(const int state) : state(state) {}
-	bool operator()(const tree_node & node) {
-		return node.state == state;
+void addWinningAndLosingStates(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states) {
+	int nrStates = decpomdp->GetNrStates();
+	int nrActions = decpomdp->GetNrJointActions();
+	double maxStateReward = -std::numeric_limits<double>::max();
+	double minStateReward = std::numeric_limits<double>::max();
+	int winningState = 0;
+	int losingState = 0;
+	for (int i = 0; i < nrStates; i++) {
+		double reward = 0;
+		for (int j = 0; j < nrActions; j++) {
+			reward += decpomdp->GetReward(i, j);
+		}
+		reward = reward / nrStates;
+		if (reward > maxStateReward) {
+			maxStateReward = reward;
+			winningState = i;
+		}
+		if (reward < minStateReward) {
+			minStateReward = reward;
+			losingState = i;
+		}
 	}
-private:
-	int state;
-};
+	cout << "State " << winningState << " is the winning state and " << losingState << " is the losing state" << endl;
+	tree_node* winningNode = getNode(states, winningState);
+	winningNode->isWinning = true;
 
-double simulation(DecPOMDPDiscreteInterface* decpomdp, int winningState, int losingState, tree_node* startNode, int horizon) {
+	tree_node* losingNode = getNode(states, losingState);
+	losingNode->isLosing = true;
+}
+
+double simulation(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states, tree_node* startNode, int horizon) {
 	int currentState = startNode->state;
 	int nrActions = decpomdp->GetNrJointActions();
 
 	for (int i = 0; i < horizon; i++) {
 		int action = rand() % nrActions;
 		currentState = decpomdp->SampleSuccessorState(currentState, action);
-		if (currentState == winningState) return 1.0;
-		if (currentState == losingState) return 0.0;
+		tree_node* stateNode = getNode(states, currentState);
+		if (stateNode->isWinning) return 1.0;
+		if (stateNode->isLosing) return 0.0;
 	}
 
-	return 0.0;
+	return 0.0; // This also is a loss
 }
 
 // Select an action using the UCT bestchild algorithm
@@ -108,10 +143,10 @@ int select_action(tree_node* currentNode, DecPOMDPDiscreteInterface* decpomdp)
 	{
 		int iterations = 0;
 		double sumValue = 0.0;
-		for (list<tree_node>::iterator child=currentNode->children[action].begin(); child != currentNode->children[action].end(); ++child)
+		for (list<tree_node*>::iterator child=currentNode->children[action].begin(); child != currentNode->children[action].end(); ++child)
 		{
-			iterations += child->iterations;
-			sumValue += child->iterations * child->average;
+			iterations += (*child)->iterations;
+			sumValue += (*child)->iterations * (*child)->average;
 		}
 		double averageValue = sumValue / iterations;
 		double normalizedValue = (averageValue - currentNode->min) / (currentNode->max - currentNode->min);
@@ -129,7 +164,7 @@ int select_action(tree_node* currentNode, DecPOMDPDiscreteInterface* decpomdp)
 	return selectedAction;
 }
 
-double MCTS(DecPOMDPDiscreteInterface* decpomdp, int winningState, int losingState, tree_node* currentNode, int horizon)
+double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states, tree_node* currentNode, int horizon)
 {
 	if (horizon <= 0) {
 		return 0;
@@ -138,24 +173,23 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, int winningState, int losingSta
 		int nrActions = decpomdp->GetNrJointActions();
 		int action = select_action(currentNode, decpomdp);
 		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action);
+		tree_node* stateNode = getNode(states, nextState);
 		double reward;
-		if (nextState == winningState) {
+		if (stateNode->isWinning) {
 			reward = 1.0;
 		}
-		else if (nextState == losingState) {
+		else if (stateNode->isLosing) {
 			reward = 0.0;
 		}
 		else {
-			list<tree_node>* stateList = &(currentNode->children[action]); // Will instantiate new object if not done this action before
-			list<tree_node>::iterator result = find_if(stateList->begin(), stateList->end(), find_by_state(nextState));
+			list<tree_node*>* stateList = &(currentNode->children[action]); // Will instantiate new list if not done this action before
+			list<tree_node*>::iterator result = find(stateList->begin(), stateList->end(), stateNode);
 			if (result != stateList->end()) { // Gotten here before, go deeper
-				tree_node* state = &(*result); // Magic to get rid of the iterator
-				reward = MCTS(decpomdp, winningState, losingState, state, horizon - 1);
+				reward = MCTS(decpomdp, states, stateNode, horizon - 1);
 			}
 			else { // Never gotten here before
-				tree_node state = newNode(nextState);
-				reward = simulation(decpomdp, winningState, losingState, &state, horizon - 1);
-				stateList->push_back(state);
+				reward = simulation(decpomdp, states, stateNode, horizon - 1);
+				stateList->push_back(stateNode);
 			}
 		}
 
@@ -194,13 +228,13 @@ double BFS(DecPOMDPDiscreteInterface* decpomdp, long steps, int state) {
 void printTree(tree_node* node, int depth, int maxDepth) {
 	cout << string(depth, '\t') << node->toString() << endl;
 	if (maxDepth == 0 || depth < maxDepth) {
-		for (map<int, list<tree_node> >::iterator ii = node->children.begin(); ii != node->children.end(); ++ii)
+		for (map<int, list<tree_node*> >::iterator ii = node->children.begin(); ii != node->children.end(); ++ii)
 		{
 			cout << string(depth, '\t') << ii->first << ": " << endl;
 
-			for (list<tree_node>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
+			for (list<tree_node*>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
 			{
-				printTree(&*jj, depth + 1, maxDepth);
+				printTree(*jj, depth + 1, maxDepth);
 			}
 		}
 	}
@@ -223,27 +257,6 @@ int main(int argc, char **argv)
 		int nrStates = decpomdp->GetNrStates();
 		int nrActions = decpomdp->GetNrJointActions();
 		
-		double maxStateReward = -std::numeric_limits<double>::max();
-		double minStateReward = std::numeric_limits<double>::max();
-		int winningState = 0;
-		int losingState = 0;
-		for (int i = 0; i < nrStates; i++) {
-			double reward = 0;
-			for (int j = 0; j < nrActions; j++) {
-				reward += decpomdp->GetReward(i, j);
-			}
-			reward = reward / nrStates;
-			if (reward > maxStateReward) {
-				maxStateReward = reward;
-				winningState = i;
-			}
-			if (reward < minStateReward) {
-				minStateReward = reward;
-				losingState = i;
-			}
-		}
-		cout << "State " << winningState << " is the winning state and " << losingState << " is the losing state" << endl;
-
 		size_t initialState = decpomdp->SampleInitialState();
 
 		// Pure BFS. Takes a long time, answer is only marginally better than pure random.
@@ -265,19 +278,41 @@ int main(int argc, char **argv)
 			if (sumReward > maxReward) maxReward = sumReward;
 			//cout << "Run " << i << " with reward " << sumReward << endl;
 		}
-		cout << "Maximum random search reward found is " << maxReward << endl;
+		cout << "Maximum random search reward found is " << maxReward << endl;		
 
 		maxReward = -std::numeric_limits<double>::max();
-		tree_node r = newNode(initialState);
-		tree_node* root = &r;
+		map<int, tree_node*> states;
+		tree_node* root = getNode(&states, initialState);
+		addWinningAndLosingStates(decpomdp, &states);
+
 		// MCTS
 		for (int i = 0; i < 10000; i++) {
-			double reward = MCTS(decpomdp, winningState, losingState, root, args.horizon);
+			double reward = MCTS(decpomdp, &states, root, args.horizon);
 			if (reward > maxReward) maxReward = reward;
 		}
-		printTree(root, 0, 2);
-
+		//printTree(root, 0, 2);
+		for (int i = 0; i < nrStates; i++) {
+			cout << states[i]->toString() << endl;
+		}
+		
 		cout << "Maximum MCTS search reward found is " << maxReward << endl;
+
+		int maxIterations = 0;
+		int maxAction = 0;
+		for (map<int, list<tree_node*> >::iterator ii = root->children.begin(); ii != root->children.end(); ++ii)
+		{
+			int iterations = 0;
+			for (list<tree_node*>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
+			{
+				iterations += (*jj)->iterations;
+			}
+
+			if (iterations > maxIterations) {
+				maxIterations = iterations;
+				maxAction = ii->first;
+			}
+		}
+		cout << "Best action is " << maxAction << endl;
 	}
 	catch(E& e){ e.Print(); }
 
