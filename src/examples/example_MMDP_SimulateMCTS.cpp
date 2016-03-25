@@ -68,8 +68,6 @@ tree_node newNode(int state)
 	node.state = state;
 	node.iterations = 0;
 	node.average = 0.0;
-	node.min = 10^10;
-	node.max = -10^10;
 	return node;
 }
 
@@ -114,8 +112,7 @@ int select_action(tree_node* currentNode, DecPOMDPDiscreteInterface* decpomdp)
 			sumValue += child->iterations * child->average;
 		}
 		double averageValue = sumValue / iterations;
-		double normalizedValue = (averageValue - currentNode->min) / (currentNode->max - currentNode->min);
-		double uctValue = normalizedValue + 2*exploration*sqrt(2*log(currentNode->iterations)/iterations);
+		double uctValue = averageValue + 2*exploration*sqrt(2*log(currentNode->iterations)/iterations);
 		if(iterations==0)
 		{
 			uctValue = 10000+rand()%1000; // explore new actions first.
@@ -222,7 +219,7 @@ int main(int argc, char **argv)
 
 		int nrStates = decpomdp->GetNrStates();
 		int nrActions = decpomdp->GetNrJointActions();
-		
+
 		double maxStateReward = -std::numeric_limits<double>::max();
 		double minStateReward = std::numeric_limits<double>::max();
 		int winningState = 0;
@@ -278,6 +275,24 @@ int main(int argc, char **argv)
 		printTree(root, 0, 2);
 
 		cout << "Maximum MCTS search reward found is " << maxReward << endl;
+
+		int maxIterations = 0;
+		int maxAction = 0;
+		for(int action = 0; action<nrActions; action++)
+		{
+			int iterations = 0;
+			for (list<tree_node>::iterator child=root->children[action].begin(); child != root->children[action].end(); ++child)
+			{
+				iterations += child->iterations;
+			}
+
+			if (iterations > maxIterations) {
+				maxIterations = iterations;
+				maxAction = action;
+			}
+			cout << action << ": " << iterations << endl;
+		}
+		cout << "Best action is " << maxAction << endl;
 	}
 	catch(E& e){ e.Print(); }
 
