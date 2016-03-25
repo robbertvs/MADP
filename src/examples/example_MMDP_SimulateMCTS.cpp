@@ -178,9 +178,40 @@ int select_final_action(tree_node* currentNode, int nrActions)
 			maxIterations = iterations;
 			maxAction = action;
 		}
-		cout << action << ": " << iterations << endl;
 	}
 	return maxAction;
+}
+
+double final_simulation(DecPOMDPDiscreteInterface* decpomdp, int winningState, int losingState, tree_node* currentNode, int horizon)
+{
+	if (horizon <= 0) {
+		return 0;
+	}
+	else {
+		int nrActions = decpomdp->GetNrJointActions();
+		int action = select_final_action(currentNode, nrActions);
+		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action);
+		double reward;
+		if (nextState == winningState) {
+			reward = 1.0;
+		}
+		else if (nextState == losingState) {
+			reward = 0.0;
+		}
+		else {
+			list<tree_node>* stateList = &(currentNode->children[action]); // Will instantiate new object if not done this action before
+			list<tree_node>::iterator result = find_if(stateList->begin(), stateList->end(), find_by_state(nextState));
+			if (result != stateList->end()) { // Gotten here before, go deeper
+				tree_node* state = &(*result); // Magic to get rid of the iterator
+				reward = final_simulation(decpomdp, winningState, losingState, state, horizon - 1);
+			}
+			else { // Never gotten here before
+				tree_node state = newNode(nextState);
+				reward = simulation(decpomdp, winningState, losingState, &state, horizon - 1);
+			}
+		}
+		return reward;
+	}
 }
 
 //BFS currently does not take into account the stochastic nature of the environment.
@@ -298,6 +329,13 @@ int main(int argc, char **argv)
 		cout << "Maximum MCTS search reward found is " << maxReward << endl;
 
 		cout << "Best action is " << select_final_action(root, nrActions) << endl;
+
+		double finalSum = 0.0;
+		for(int i = 0; i<100; i++)
+		{
+			finalSum += final_simulation(decpomdp, winningState, losingState, root, args.horizon);
+		}
+		cout << finalSum/100 << endl;
 	}
 	catch(E& e){ e.Print(); }
 
