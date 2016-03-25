@@ -226,13 +226,16 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 		else {
 			cout << "Size of action children is " << action->children.size() << endl;
 			set<state_node*>::iterator result = action->children.find(stateNode);
-			if (result != action->children.end()) { // Gotten here before, go deeper
+			if (result == action->children.end()) {
+				action->children.insert(stateNode);
+			}
+
+			if (stateNode->iterations > 0) { // Gotten here before, go deeper
 				reward = MCTS(decpomdp, states, stateNode, horizon - 1);
 			}
 			else { // Never gotten here before
 				reward = simulation(decpomdp, states, stateNode, horizon - 1);
-				cout << "Simulation for node " << nextState << " gives reward " << reward << endl;;
-				action->children.insert(stateNode);
+				cout << "Simulation for node " << nextState << " gives reward " << reward << endl;
 				stateNode->average = (stateNode->iterations * stateNode->average + reward) / (stateNode->iterations + 1);
 				stateNode->iterations++;
 			}
