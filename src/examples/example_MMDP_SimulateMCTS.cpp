@@ -54,7 +54,7 @@ struct state_node
 {
 	int state;
 	int iterations;
-	double average;
+	double sum;
 	bool isWinning;
 	bool isLosing;
 	set<action_node*, comparator<action_node> > children;
@@ -67,16 +67,20 @@ struct state_node
 		return (state < other.state);
 	}
 
+	double average() {
+		return (iterations == 0) ? 0 : sum / iterations;
+	}
+
 	string toString() {
 		ostringstream os;
-		os << "Node is in state " << state << " and has average " << average << " from " << iterations << " iterations.";
+		os << "Node is in state " << state << " and has average " << average() << " from " << iterations << " iterations.";
 		return os.str();
 	}
 
 	state_node(int s) {
 		state = s;
 		iterations = 0;
-		average = 0.0;
+		sum = 0.0;
 		isWinning = false;
 		isLosing = false;
 	}
@@ -99,9 +103,8 @@ struct action_node {
 		return *state < *other.state;
 	}
 
-	double average()
-	{
-		return sum/iterations;
+	double average() {
+		return (iterations == 0) ? 0 : sum / iterations;
 	}
 
 	action_node() {}
@@ -222,6 +225,9 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 		cout << "Going from state " << currentNode->state << " to state " << nextState << " with action " << action->action << endl;
 		double reward;
 
+		currentNode->iterations++;
+		action->iterations++;
+
 		state_node* stateNode = getNode(states, nextState);
 		if (stateNode->isWinning) {
 			reward = 1.0;
@@ -240,18 +246,14 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 				reward = MCTS(decpomdp, states, stateNode, horizon - 1);
 			}
 			else { // Never gotten here before
-				stateNode->iterations++;
 				reward = simulation(decpomdp, states, stateNode, horizon - 1);
 				cout << "Simulation for node " << nextState << " gives reward " << reward << endl;
-				stateNode->average = (stateNode->iterations * stateNode->average + reward) / (stateNode->iterations + 1);
+				stateNode->iterations++;
+				stateNode->sum += reward;
 			}
-			cout << "Added new child, size of action children is now " << action->children.size() << endl;
 		}
-
-		action->iterations++;
-		currentNode->average = (currentNode->iterations * currentNode->average + reward) / (currentNode->iterations + 1);
-		currentNode->iterations++;
 		action->sum += reward;
+		currentNode->sum += reward;		
 
 		return reward;
 	}
