@@ -82,7 +82,7 @@ struct action_node {
 	bool operator==(const action_node &other) const {
 		return state == other.state && action == other.action;
 	}
-
+	action_node() {}
 	action_node(state_node* s, int a) {
 		state = s;
 		action = a;
@@ -160,22 +160,21 @@ action_node* select_action(state_node* currentNode, DecPOMDPDiscreteInterface* d
 
 	for (int action = 0; action < nrActions; action++) {
 		double uctValue;
-		action_node dummy(currentNode, action);
+		action_node* dummy = new action_node(currentNode, action);
 		action_node* actionNode;
-		set<action_node*>::iterator result = actions->find(&dummy);
+		set<action_node*>::iterator result = actions->find(dummy);
 		if (result != actions->end() && (*result)->iterations > 0) {
 			actionNode = (*result);
 			uctValue = actionNode->average + 2 * exploration * sqrt(2 * log(currentNode->iterations) / actionNode->iterations);
 		}
 		else {
 			uctValue = 10000 + rand() % 1000;
-			actionNode = &dummy;
+			actionNode = dummy;
 			actions->insert(actionNode);
 		}
 		
 		if (uctValue > maxUct)
 		{
-			cout << "Action " << action << " for state " << currentNode->state << " has UCT value " << uctValue << endl;
 			selectedAction = actionNode;
 			maxUct = uctValue;
 		}
