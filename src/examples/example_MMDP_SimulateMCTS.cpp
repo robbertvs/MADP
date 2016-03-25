@@ -72,7 +72,7 @@ struct tree_node
 tree_node* getNode(map<int, tree_node*> *states, int state) {
 	map<int, tree_node*>::iterator tryState = states->find(state);
 	if (tryState == states->end()) {
-		cout << "Making new node with state " << state << endl;
+		//cout << "Making new node with state " << state << endl;
 		tree_node* node = new tree_node(state);
 		(*states)[state] = node;
 		return node;
@@ -135,7 +135,7 @@ int select_action(tree_node* currentNode, DecPOMDPDiscreteInterface* decpomdp)
 	double maxUct = 0;
 	int selectedAction = 0;
 
-	for(int action = 0; action<nrActions; action++)
+	for(int action = 0; action < nrActions; action++)
 	{
 		int iterations = 0;
 		double sumValue = 0.0;
@@ -156,46 +156,54 @@ int select_action(tree_node* currentNode, DecPOMDPDiscreteInterface* decpomdp)
 			maxUct = uctValue;
 		}
 	}
+	cout << "Choosing action " << selectedAction << " from state " << currentNode->state << endl;
 	return selectedAction;
 }
 
-double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states, tree_node* currentNode, int horizon)
+double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states, tree_node* currentNode, int horizon, set<int> *seenStates)
 {
 	if (horizon <= 0) {
 		return 0;
 	}
 	else {
+		seenStates->insert(currentNode->state);
 		int nrActions = decpomdp->GetNrJointActions();
 		int action = select_action(currentNode, decpomdp);
 		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action);
+		cout << "Going from state " << currentNode->state << " to state " << nextState << " with action " << action << endl;
 		double reward;
-		if (nextState == currentNode->state) {
-			reward = simulation(decpomdp, states, currentNode, horizon - 1);
+		
+		tree_node* stateNode = getNode(states, nextState);
+		if (stateNode->isWinning) {
+			reward = 1.0;
+		}
+		else if (stateNode->isLosing) {
+			reward = 0.0;
 		}
 		else {
-			tree_node* stateNode = getNode(states, nextState);
-			if (stateNode->isWinning) {
-				reward = 1.0;
+			list<tree_node*>* stateList = &(currentNode->children[action]); // Will instantiate new list if not done this action before
+			list<tree_node*>::iterator result = find(stateList->begin(), stateList->end(), stateNode);
+			if (result != stateList->end()) { // Gotten here before, go deeper
+				reward = MCTS(decpomdp, states, stateNode, horizon - 1, seenStates);
 			}
-			else if (stateNode->isLosing) {
-				reward = 0.0;
-			}
-			else {
-				list<tree_node*>* stateList = &(currentNode->children[action]); // Will instantiate new list if not done this action before
-				list<tree_node*>::iterator result = find(stateList->begin(), stateList->end(), stateNode);
-				if (result != stateList->end()) { // Gotten here before, go deeper
-					reward = MCTS(decpomdp, states, stateNode, horizon - 1);
-				}
-				else { // Never gotten here before
-					reward = simulation(decpomdp, states, stateNode, horizon - 1);
-					stateList->push_back(stateNode);
-				}
+			else { // Never gotten here before
+				reward = simulation(decpomdp, states, stateNode, horizon - 1);
+				cout << "Simulation for node " << nextState << " gives reward " << reward << endl;;
+				stateList->push_back(stateNode);
 			}
 		}
+		
+		return reward;
+	}
+}
 
-		currentNode->average = (currentNode->iterations * currentNode->average + reward) / (currentNode->iterations + 1);
-		currentNode->iterations++;
-		return currentNode->average;
+double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states, tree_node* currentNode, int horizon) {
+	set<int> seenStates;
+	double reward = MCTS(decpomdp, states, currentNode, horizon, &seenStates);
+	for (set<int>::iterator ii = seenStates.begin(); ii != seenStates.end(); ++ii) {
+		tree_node* node = getNode(states, (*ii));
+		node->average = (node->iterations * node->average + reward) / (node->iterations + 1);
+		node->iterations++;
 	}
 }
 
@@ -251,7 +259,6 @@ int main(int argc, char **argv)
 		DecPOMDPDiscreteInterface* decpomdp = GetDecPOMDPDiscreteInterfaceFromArgs(args);
 		cout << "...done."<<endl;
 
-		//srand(time(NULL));
 		srand(42);
 
 		int nrStates = decpomdp->GetNrStates();
@@ -286,7 +293,9 @@ int main(int argc, char **argv)
 		addWinningAndLosingStates(decpomdp, &states);
 
 		// MCTS
-		for (int i = 0; i < 10000; i++) {
+		for (int i = 0; i < 10; i++) {
+			cout << "-----------------------" << endl;
+			cout << "Simulation " << i << endl;
 			double reward = MCTS(decpomdp, &states, root, args.horizon);
 			if (reward > maxReward) maxReward = reward;
 		}
