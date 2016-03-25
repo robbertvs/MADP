@@ -162,6 +162,27 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, int winningState, int losingSta
 	}
 }
 
+int select_final_action(tree_node* currentNode, int nrActions)
+{
+	int maxIterations = 0;
+	int maxAction = 0;
+	for(int action = 0; action<nrActions; action++)
+	{
+		int iterations = 0;
+		for (list<tree_node>::iterator child=currentNode->children[action].begin(); child != currentNode->children[action].end(); ++child)
+		{
+			iterations += child->iterations;
+		}
+
+		if (iterations > maxIterations) {
+			maxIterations = iterations;
+			maxAction = action;
+		}
+		cout << action << ": " << iterations << endl;
+	}
+	return maxAction;
+}
+
 //BFS currently does not take into account the stochastic nature of the environment.
 double BFS(DecPOMDPDiscreteInterface* decpomdp, long steps, int state) {
     if (steps <= 0)
@@ -276,23 +297,7 @@ int main(int argc, char **argv)
 
 		cout << "Maximum MCTS search reward found is " << maxReward << endl;
 
-		int maxIterations = 0;
-		int maxAction = 0;
-		for(int action = 0; action<nrActions; action++)
-		{
-			int iterations = 0;
-			for (list<tree_node>::iterator child=root->children[action].begin(); child != root->children[action].end(); ++child)
-			{
-				iterations += child->iterations;
-			}
-
-			if (iterations > maxIterations) {
-				maxIterations = iterations;
-				maxAction = action;
-			}
-			cout << action << ": " << iterations << endl;
-		}
-		cout << "Best action is " << maxAction << endl;
+		cout << "Best action is " << select_final_action(root, nrActions) << endl;
 	}
 	catch(E& e){ e.Print(); }
 
