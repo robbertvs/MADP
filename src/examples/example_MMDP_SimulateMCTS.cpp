@@ -210,7 +210,6 @@ action_node* select_action(state_node* currentNode, DecPOMDPDiscreteInterface* d
 		}
 	}
 
-	cout << "Choosing action " << selectedAction->action << " from state " << currentNode->state << endl;
 	return selectedAction;
 }
 
@@ -222,7 +221,7 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 	else {
 		action_node* action = select_action(currentNode, decpomdp);
 		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action->action);
-		cout << "Going from state " << currentNode->state << " to state " << nextState << " with action " << action->action << endl;
+		//cout << "Going from state " << currentNode->state << " to state " << nextState << " with action " << action->action << endl;
 		double reward;
 
 		currentNode->iterations++;
@@ -236,7 +235,6 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 			reward = 0.0;
 		}
 		else {
-			cout << "Size of action children is " << action->children.size() << endl;
 			set<state_node*>::iterator result = action->children.find(stateNode);
 			if (result == action->children.end()) {
 				action->children.insert(stateNode);
@@ -247,7 +245,7 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 			}
 			else { // Never gotten here before
 				reward = simulation(decpomdp, states, stateNode, horizon - 1);
-				cout << "Simulation for node " << nextState << " gives reward " << reward << endl;
+				//cout << "Simulation for node " << nextState << " gives reward " << reward << endl;
 				stateNode->iterations++;
 				stateNode->sum += reward;
 			}
@@ -361,42 +359,31 @@ int main(int argc, char **argv)
 		}
 		cout << "Maximum random search reward found is " << maxReward << endl;
 
-		maxReward = -std::numeric_limits<double>::max();
 		map<int, state_node*> states;
 		state_node* root = getNode(&states, initialState);
 		addWinningAndLosingStates(decpomdp, &states);
 
 		// MCTS
-		for (int i = 0; i < 10; i++) {
-			cout << "-----------------------" << endl;
-			cout << "Simulation " << i << endl;
-			double reward = MCTS(decpomdp, &states, root, args.horizon);
-			if (reward > maxReward) maxReward = reward;
+		for (int i = 0; i < 10000; i++) {
+			MCTS(decpomdp, &states, root, args.horizon);
 		}
 		//printTree(root, 0, 2);
 		for (int i = 0; i < nrStates; i++) {
 			cout << states[i]->toString() << endl;
 		}
-
-		cout << "Maximum MCTS search reward found is " << maxReward << endl;
-
-		//int maxIterations = 0;
-		//int maxAction = 0;
-		//for (map<int, list<state_node*> >::iterator ii = root->children.begin(); ii != root->children.end(); ++ii)
-		//{
-		//	int iterations = 0;
-		//	for (list<state_node*>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
-		//	{
-		//		iterations += (*jj)->iterations;
-		//	}
-
-		//	if (iterations > maxIterations) {
-		//		maxIterations = iterations;
-		//		maxAction = ii->first;
-		//	}
-		//	cout << ii->first << ": " << iterations << endl;
-		//}
-		//cout << "Best action is " << maxAction << endl;
+		
+		int maxIterations = 0;
+		int maxAction = 0;
+		for (set<action_node*, comparator<action_node> >::iterator ii = root->children.begin(); ii != root->children.end(); ++ii)
+		{
+			
+			if ((*ii)->iterations > maxIterations) {
+				maxIterations = (*ii)->iterations;
+				maxAction = (*ii)->action;
+			}
+			cout << (*ii)->action << ": " << (*ii)->iterations << endl;
+		}
+		cout << "Best action is " << maxAction << endl;
 	}
 	catch(E& e){ e.Print(); }
 
