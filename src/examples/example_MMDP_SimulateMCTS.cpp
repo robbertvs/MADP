@@ -86,7 +86,7 @@ struct action_node {
 	state_node* state;
 	int action;
 	int iterations;
-	double average;
+	double sum;
 	set<state_node*, comparator<state_node> > children;
 
 	bool operator==(const action_node &other) const {
@@ -98,12 +98,18 @@ struct action_node {
 			return action < other.action;
 		return *state < *other.state;
 	}
+
+	double average()
+	{
+		return sum/iterations;
+	}
+
 	action_node() {}
 	action_node(state_node* s, int a) {
 		state = s;
 		action = a;
 		iterations = 0;
-		average = 0.0;
+		sum = 0.0;
 	}
 };
 
@@ -188,12 +194,12 @@ action_node* select_action(state_node* currentNode, DecPOMDPDiscreteInterface* d
 		}
 
 		if (actionNode->iterations > 0) {
-			uctValue = actionNode->average + 2 * exploration * sqrt(2 * log(currentNode->iterations) / actionNode->iterations);
+			uctValue = actionNode->average() + 2 * exploration * sqrt(2 * log(currentNode->iterations) / actionNode->iterations);
 		}
 		else {
-			uctValue = 10000 + rand() % 1000;			
+			uctValue = 10000 + rand() % 1000;
 		}
-		
+
 		if (uctValue > maxUct)
 		{
 			selectedAction = actionNode;
@@ -215,7 +221,7 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action->action);
 		cout << "Going from state " << currentNode->state << " to state " << nextState << " with action " << action->action << endl;
 		double reward;
-		
+
 		state_node* stateNode = getNode(states, nextState);
 		if (stateNode->isWinning) {
 			reward = 1.0;
@@ -234,19 +240,19 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 				reward = MCTS(decpomdp, states, stateNode, horizon - 1);
 			}
 			else { // Never gotten here before
+				stateNode->iterations++;
 				reward = simulation(decpomdp, states, stateNode, horizon - 1);
 				cout << "Simulation for node " << nextState << " gives reward " << reward << endl;
 				stateNode->average = (stateNode->iterations * stateNode->average + reward) / (stateNode->iterations + 1);
-				stateNode->iterations++;
 			}
 			cout << "Added new child, size of action children is now " << action->children.size() << endl;
 		}
 
+		action->iterations++;
 		currentNode->average = (currentNode->iterations * currentNode->average + reward) / (currentNode->iterations + 1);
 		currentNode->iterations++;
-		action->average = (action->iterations * action->average + reward) / (action->iterations + 1);
-		action->iterations++;
-		
+		action->sum += reward;
+
 		return reward;
 	}
 }
@@ -351,7 +357,7 @@ int main(int argc, char **argv)
 			if (sumReward > maxReward) maxReward = sumReward;
 			//cout << "Run " << i << " with reward " << sumReward << endl;
 		}
-		cout << "Maximum random search reward found is " << maxReward << endl;		
+		cout << "Maximum random search reward found is " << maxReward << endl;
 
 		maxReward = -std::numeric_limits<double>::max();
 		map<int, state_node*> states;
@@ -369,7 +375,7 @@ int main(int argc, char **argv)
 		for (int i = 0; i < nrStates; i++) {
 			cout << states[i]->toString() << endl;
 		}
-		
+
 		cout << "Maximum MCTS search reward found is " << maxReward << endl;
 
 		//int maxIterations = 0;
