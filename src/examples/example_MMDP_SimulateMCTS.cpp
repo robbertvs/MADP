@@ -94,7 +94,9 @@ struct action_node {
 	}
 
 	bool operator<(const action_node &other) const {
-		return (state < other.state) && (action < other.action);
+		if (*state == *other.state)
+			return action < other.action;
+		return *state < *other.state;
 	}
 	action_node() {}
 	action_node(state_node* s, int a) {
@@ -171,21 +173,25 @@ action_node* select_action(state_node* currentNode, DecPOMDPDiscreteInterface* d
 	double maxUct = 0;
 	action_node* selectedAction;
 	set<action_node*, comparator<action_node> > *actions = &(currentNode->children);
-	cout << actions->size() << endl;
 
 	for (int action = 0; action < nrActions; action++) {
 		double uctValue;
 		action_node* dummy = new action_node(currentNode, action);
 		action_node* actionNode;
 		set<action_node*>::iterator result = actions->find(dummy);
-		if (result != actions->end() && (*result)->iterations > 0) {
+		if (result != actions->end()) {
 			actionNode = (*result);
+		}
+		else {
+			actionNode = dummy;
+			actions->insert(actionNode);
+		}
+
+		if (actionNode->iterations > 0) {
 			uctValue = actionNode->average + 2 * exploration * sqrt(2 * log(currentNode->iterations) / actionNode->iterations);
 		}
 		else {
-			uctValue = 10000 + rand() % 1000;
-			actionNode = dummy;
-			actions->insert(actionNode);
+			uctValue = 10000 + rand() % 1000;			
 		}
 		
 		if (uctValue > maxUct)
@@ -218,7 +224,7 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 			reward = 0.0;
 		}
 		else {
-			cout << action->children.size() << endl;
+			cout << "Size of action children is " << action->children.size() << endl;
 			set<state_node*>::iterator result = action->children.find(stateNode);
 			if (result != action->children.end()) { // Gotten here before, go deeper
 				reward = MCTS(decpomdp, states, stateNode, horizon - 1);
@@ -227,8 +233,10 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 				reward = simulation(decpomdp, states, stateNode, horizon - 1);
 				cout << "Simulation for node " << nextState << " gives reward " << reward << endl;;
 				action->children.insert(stateNode);
+				stateNode->average = (stateNode->iterations * stateNode->average + reward) / (stateNode->iterations + 1);
+				stateNode->iterations++;
 			}
-			cout << action->children.size() << endl;
+			cout << "Added new child, size of action children is now " << action->children.size() << endl;
 		}
 
 		currentNode->average = (currentNode->iterations * currentNode->average + reward) / (currentNode->iterations + 1);
@@ -300,16 +308,19 @@ int main(int argc, char **argv)
 		//set<action_node*, comparator<action_node> > set;
 		//set.insert(node1);
 		//set.insert(node2);
-		//cout << set.size() << endl;
+		//cout << "Size should now be 1: " << set.size() << endl;
+		//action_node* node3 = new action_node(s, 2);
+		//set.insert(node3);
+		//cout << "Size should now be 2: " << set.size() << endl;
 
 		//state_node* s2 = new state_node(6);
 		//state_node* s3 = new state_node(6);
 		//node1->children.insert(s2);
 		//node1->children.insert(s3);
-		//cout << node1->children.size() << endl;
+		//cout << "Size should now be 1: " << node1->children.size() << endl;
 		//state_node* s4 = new state_node(7);
 		//node1->children.insert(s4);
-		//cout << node1->children.size() << endl;
+		//cout << "Size should now be 2: " << node1->children.size() << endl;
 
 		//return 0;
 
