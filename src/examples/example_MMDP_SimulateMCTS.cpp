@@ -43,7 +43,13 @@ const struct argp_child childVector[] = {
     { 0 }
 };
 #include "argumentHandlersPostChild.h"
+struct state_node;
 struct action_node;
+template<class T> struct comparator
+{
+	bool operator()(const T* lhs, const T* rhs) const { return *lhs < *rhs; }
+};
+
 struct state_node
 {
 	int state;
@@ -51,10 +57,14 @@ struct state_node
 	double average;
 	bool isWinning;
 	bool isLosing;
-	set<action_node*> children;
+	set<action_node*, comparator<action_node> > children;
 
 	bool operator==(const state_node &other) const {
 		return state == other.state;
+	}
+
+	bool operator<(const state_node &other) const {
+		return (state < other.state);
 	}
 
 	string toString() {
@@ -77,10 +87,14 @@ struct action_node {
 	int action;
 	int iterations;
 	double average;
-	set<state_node*> children;
+	set<state_node*, comparator<state_node> > children;
 
 	bool operator==(const action_node &other) const {
 		return state == other.state && action == other.action;
+	}
+
+	bool operator<(const action_node &other) const {
+		return (state < other.state) && (action < other.action);
 	}
 	action_node() {}
 	action_node(state_node* s, int a) {
@@ -156,7 +170,8 @@ action_node* select_action(state_node* currentNode, DecPOMDPDiscreteInterface* d
 	int nrActions = decpomdp->GetNrJointActions();
 	double maxUct = 0;
 	action_node* selectedAction;
-	set<action_node*> *actions = &(currentNode->children);
+	set<action_node*, comparator<action_node> > *actions = &(currentNode->children);
+	cout << actions->size() << endl;
 
 	for (int action = 0; action < nrActions; action++) {
 		double uctValue;
@@ -203,6 +218,7 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 			reward = 0.0;
 		}
 		else {
+			cout << action->children.size() << endl;
 			set<state_node*>::iterator result = action->children.find(stateNode);
 			if (result != action->children.end()) { // Gotten here before, go deeper
 				reward = MCTS(decpomdp, states, stateNode, horizon - 1);
@@ -210,8 +226,9 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 			else { // Never gotten here before
 				reward = simulation(decpomdp, states, stateNode, horizon - 1);
 				cout << "Simulation for node " << nextState << " gives reward " << reward << endl;;
-				//(&(action->children))->insert(stateNode);
+				action->children.insert(stateNode);
 			}
+			cout << action->children.size() << endl;
 		}
 
 		currentNode->average = (currentNode->iterations * currentNode->average + reward) / (currentNode->iterations + 1);
@@ -276,6 +293,25 @@ int main(int argc, char **argv)
 		cout << "...done."<<endl;
 
 		srand(42);
+
+		//state_node* s = new state_node(5);
+		//action_node* node1 = new action_node(s, 1);
+		//action_node* node2 = new action_node(s, 1);
+		//set<action_node*, comparator<action_node> > set;
+		//set.insert(node1);
+		//set.insert(node2);
+		//cout << set.size() << endl;
+
+		//state_node* s2 = new state_node(6);
+		//state_node* s3 = new state_node(6);
+		//node1->children.insert(s2);
+		//node1->children.insert(s3);
+		//cout << node1->children.size() << endl;
+		//state_node* s4 = new state_node(7);
+		//node1->children.insert(s4);
+		//cout << node1->children.size() << endl;
+
+		//return 0;
 
 		int nrStates = decpomdp->GetNrStates();
 		int nrActions = decpomdp->GetNrJointActions();
