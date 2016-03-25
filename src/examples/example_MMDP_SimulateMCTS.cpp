@@ -369,7 +369,7 @@ int main(int argc, char **argv)
 		}
 		//printTree(root, 0, 2);
 		for (int i = 0; i < nrStates; i++) {
-			cout << states[i]->toString() << endl;
+			cout << getNode(&states, i)->toString() << endl;
 		}
 		
 		int maxIterations = 0;
