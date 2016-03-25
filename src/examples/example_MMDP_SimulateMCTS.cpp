@@ -167,7 +167,7 @@ double simulation(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *st
 		int action = rand() % nrActions;
 		currentState = decpomdp->SampleSuccessorState(currentState, action);
 		state_node* stateNode = getNode(states, currentState);
-		if (stateNode->isWinning) return 1.0;
+		if (stateNode->isWinning) return 1.0 * pow(decpomdp->GetDiscount(), i);
 		if (stateNode->isLosing) return 0.0;
 	}
 
@@ -219,6 +219,7 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 		return 0.0;
 	}
 	else {
+		double discount = decpomdp->GetDiscount();
 		action_node* action = select_action(currentNode, decpomdp);
 		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action->action);
 		//cout << "Going from state " << currentNode->state << " to state " << nextState << " with action " << action->action << endl;
@@ -241,10 +242,10 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, 
 			}
 
 			if (stateNode->iterations > 0) { // Gotten here before, go deeper
-				reward = MCTS(decpomdp, states, stateNode, horizon - 1);
+				reward = MCTS(decpomdp, states, stateNode, horizon - 1) * discount;
 			}
 			else { // Never gotten here before
-				reward = simulation(decpomdp, states, stateNode, horizon - 1);
+				reward = simulation(decpomdp, states, stateNode, horizon - 1) * discount;
 				//cout << "Simulation for node " << nextState << " gives reward " << reward << endl;
 				stateNode->iterations++;
 				stateNode->sum += reward;
