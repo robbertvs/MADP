@@ -43,24 +43,27 @@ const struct argp_child childVector[] = {
     { 0 }
 };
 #include "argumentHandlersPostChild.h"
-
-struct tree_node
+struct action_node;
+struct state_node
 {
 	int state;
 	int iterations;
 	double average;
 	bool isWinning;
 	bool isLosing;
-	map<int, list<tree_node*> > children; //Map of action to list of children
-	bool operator==(const tree_node &other) const {
+	set<action_node*> children;
+
+	bool operator==(const state_node &other) const {
 		return state == other.state;
 	}
+
 	string toString() {
 		ostringstream os;
 		os << "Node is in state " << state << " and has average " << average << " from " << iterations << " iterations.";
 		return os.str();
 	}
-	tree_node(int s=-1) { // Default called by map
+
+	state_node(int s) {
 		state = s;
 		iterations = 0;
 		average = 0.0;
@@ -69,11 +72,30 @@ struct tree_node
 	}
 };
 
-tree_node* getNode(map<int, tree_node*> *states, int state) {
-	map<int, tree_node*>::iterator tryState = states->find(state);
+struct action_node {
+	state_node* state;
+	int action;
+	int iterations;
+	double average;
+	set<state_node*> children;
+
+	bool operator==(const action_node &other) const {
+		return state == other.state && action == other.action;
+	}
+
+	action_node(state_node* s, int a) {
+		state = s;
+		action = a;
+		iterations = 0;
+		average = 0.0;
+	}
+};
+
+state_node* getNode(map<int, state_node*> *states, int state) {
+	map<int, state_node*>::iterator tryState = states->find(state);
 	if (tryState == states->end()) {
 		//cout << "Making new node with state " << state << endl;
-		tree_node* node = new tree_node(state);
+		state_node* node = new state_node(state);
 		(*states)[state] = node;
 		return node;
 	}
@@ -82,7 +104,7 @@ tree_node* getNode(map<int, tree_node*> *states, int state) {
 	}
 }
 
-void addWinningAndLosingStates(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states) {
+void addWinningAndLosingStates(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states) {
 	int nrStates = decpomdp->GetNrStates();
 	int nrActions = decpomdp->GetNrJointActions();
 	double maxStateReward = -std::numeric_limits<double>::max();
@@ -105,21 +127,21 @@ void addWinningAndLosingStates(DecPOMDPDiscreteInterface* decpomdp, map<int, tre
 		}
 	}
 	cout << "State " << winningState << " is the winning state and " << losingState << " is the losing state" << endl;
-	tree_node* winningNode = getNode(states, winningState);
+	state_node* winningNode = getNode(states, winningState);
 	winningNode->isWinning = true;
 
-	tree_node* losingNode = getNode(states, losingState);
+	state_node* losingNode = getNode(states, losingState);
 	losingNode->isLosing = true;
 }
 
-double simulation(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states, tree_node* startNode, int horizon) {
+double simulation(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, state_node* startNode, int horizon) {
 	int currentState = startNode->state;
 	int nrActions = decpomdp->GetNrJointActions();
 
 	for (int i = 0; i < horizon; i++) {
 		int action = rand() % nrActions;
 		currentState = decpomdp->SampleSuccessorState(currentState, action);
-		tree_node* stateNode = getNode(states, currentState);
+		state_node* stateNode = getNode(states, currentState);
 		if (stateNode->isWinning) return 1.0;
 		if (stateNode->isLosing) return 0.0;
 	}
@@ -128,52 +150,53 @@ double simulation(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *sta
 }
 
 // Select an action using the UCT bestchild algorithm
-int select_action(tree_node* currentNode, DecPOMDPDiscreteInterface* decpomdp)
+action_node* select_action(state_node* currentNode, DecPOMDPDiscreteInterface* decpomdp)
 {
 	double exploration = sqrt(2);
 	int nrActions = decpomdp->GetNrJointActions();
 	double maxUct = 0;
-	int selectedAction = 0;
+	action_node* selectedAction;
+	set<action_node*> *actions = &(currentNode->children);
 
-	for(int action = 0; action < nrActions; action++)
-	{
-		int iterations = 0;
-		double sumValue = 0.0;
-		for (list<tree_node*>::iterator child=currentNode->children[action].begin(); child != currentNode->children[action].end(); ++child)
-		{
-			iterations += (*child)->iterations;
-			sumValue += (*child)->iterations * (*child)->average;
+	for (int action = 0; action < nrActions; action++) {
+		double uctValue;
+		action_node dummy(currentNode, action);
+		action_node* actionNode;
+		set<action_node*>::iterator result = actions->find(&dummy);
+		if (result != actions->end() && (*result)->iterations > 0) {
+			actionNode = (*result);
+			uctValue = actionNode->average + 2 * exploration * sqrt(2 * log(currentNode->iterations) / actionNode->iterations);
 		}
-		double averageValue = sumValue / iterations;
-		double uctValue = averageValue + 2*exploration*sqrt(2*log(currentNode->iterations)/iterations);
-		if(iterations==0)
-		{
-			uctValue = 10000+rand()%1000; // explore new actions first.
+		else {
+			uctValue = 10000 + rand() % 1000;
+			actionNode = &dummy;
+			actions->insert(actionNode);
 		}
-		if(uctValue > maxUct)
+		
+		if (uctValue > maxUct)
 		{
-			selectedAction = action;
+			cout << "Action " << action << " for state " << currentNode->state << " has UCT value " << uctValue << endl;
+			selectedAction = actionNode;
 			maxUct = uctValue;
 		}
 	}
-	cout << "Choosing action " << selectedAction << " from state " << currentNode->state << endl;
+
+	cout << "Choosing action " << selectedAction->action << " from state " << currentNode->state << endl;
 	return selectedAction;
 }
 
-double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states, tree_node* currentNode, int horizon, set<int> *seenStates)
+double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, state_node* currentNode, int horizon)
 {
 	if (horizon <= 0) {
-		return 0;
+		return 0.0;
 	}
 	else {
-		seenStates->insert(currentNode->state);
-		int nrActions = decpomdp->GetNrJointActions();
-		int action = select_action(currentNode, decpomdp);
-		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action);
-		cout << "Going from state " << currentNode->state << " to state " << nextState << " with action " << action << endl;
+		action_node* action = select_action(currentNode, decpomdp);
+		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action->action);
+		cout << "Going from state " << currentNode->state << " to state " << nextState << " with action " << action->action << endl;
 		double reward;
 		
-		tree_node* stateNode = getNode(states, nextState);
+		state_node* stateNode = getNode(states, nextState);
 		if (stateNode->isWinning) {
 			reward = 1.0;
 		}
@@ -181,29 +204,23 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states, t
 			reward = 0.0;
 		}
 		else {
-			list<tree_node*>* stateList = &(currentNode->children[action]); // Will instantiate new list if not done this action before
-			list<tree_node*>::iterator result = find(stateList->begin(), stateList->end(), stateNode);
-			if (result != stateList->end()) { // Gotten here before, go deeper
-				reward = MCTS(decpomdp, states, stateNode, horizon - 1, seenStates);
+			set<state_node*>::iterator result = action->children.find(stateNode);
+			if (result != action->children.end()) { // Gotten here before, go deeper
+				reward = MCTS(decpomdp, states, stateNode, horizon - 1);
 			}
 			else { // Never gotten here before
 				reward = simulation(decpomdp, states, stateNode, horizon - 1);
 				cout << "Simulation for node " << nextState << " gives reward " << reward << endl;;
-				stateList->push_back(stateNode);
+				//(&(action->children))->insert(stateNode);
 			}
 		}
+
+		currentNode->average = (currentNode->iterations * currentNode->average + reward) / (currentNode->iterations + 1);
+		currentNode->iterations++;
+		action->average = (action->iterations * action->average + reward) / (action->iterations + 1);
+		action->iterations++;
 		
 		return reward;
-	}
-}
-
-double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states, tree_node* currentNode, int horizon) {
-	set<int> seenStates;
-	double reward = MCTS(decpomdp, states, currentNode, horizon, &seenStates);
-	for (set<int>::iterator ii = seenStates.begin(); ii != seenStates.end(); ++ii) {
-		tree_node* node = getNode(states, (*ii));
-		node->average = (node->iterations * node->average + reward) / (node->iterations + 1);
-		node->iterations++;
 	}
 }
 
@@ -233,20 +250,20 @@ double BFS(DecPOMDPDiscreteInterface* decpomdp, long steps, int state) {
     return maxReward;
 }
 
-void printTree(tree_node* node, int depth, int maxDepth) {
-	cout << string(depth, '\t') << node->toString() << endl;
-	if (maxDepth == 0 || depth < maxDepth) {
-		for (map<int, list<tree_node*> >::iterator ii = node->children.begin(); ii != node->children.end(); ++ii)
-		{
-			cout << string(depth, '\t') << ii->first << ": " << endl;
-
-			for (list<tree_node*>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
-			{
-				printTree(*jj, depth + 1, maxDepth);
-			}
-		}
-	}
-}
+//void printTree(state_node* node, int depth, int maxDepth) {
+//	cout << string(depth, '\t') << node->toString() << endl;
+//	if (maxDepth == 0 || depth < maxDepth) {
+//		for (map<int, list<state_node*> >::iterator ii = node->children.begin(); ii != node->children.end(); ++ii)
+//		{
+//			cout << string(depth, '\t') << ii->first << ": " << endl;
+//
+//			for (list<state_node*>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
+//			{
+//				printTree(*jj, depth + 1, maxDepth);
+//			}
+//		}
+//	}
+//}
 
 int main(int argc, char **argv)
 {
@@ -288,8 +305,8 @@ int main(int argc, char **argv)
 		cout << "Maximum random search reward found is " << maxReward << endl;		
 
 		maxReward = -std::numeric_limits<double>::max();
-		map<int, tree_node*> states;
-		tree_node* root = getNode(&states, initialState);
+		map<int, state_node*> states;
+		state_node* root = getNode(&states, initialState);
 		addWinningAndLosingStates(decpomdp, &states);
 
 		// MCTS
@@ -306,23 +323,23 @@ int main(int argc, char **argv)
 		
 		cout << "Maximum MCTS search reward found is " << maxReward << endl;
 
-		int maxIterations = 0;
-		int maxAction = 0;
-		for (map<int, list<tree_node*> >::iterator ii = root->children.begin(); ii != root->children.end(); ++ii)
-		{
-			int iterations = 0;
-			for (list<tree_node*>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
-			{
-				iterations += (*jj)->iterations;
-			}
+		//int maxIterations = 0;
+		//int maxAction = 0;
+		//for (map<int, list<state_node*> >::iterator ii = root->children.begin(); ii != root->children.end(); ++ii)
+		//{
+		//	int iterations = 0;
+		//	for (list<state_node*>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
+		//	{
+		//		iterations += (*jj)->iterations;
+		//	}
 
-			if (iterations > maxIterations) {
-				maxIterations = iterations;
-				maxAction = ii->first;
-			}
-			cout << ii->first << ": " << iterations << endl;
-		}
-		cout << "Best action is " << maxAction << endl;
+		//	if (iterations > maxIterations) {
+		//		maxIterations = iterations;
+		//		maxAction = ii->first;
+		//	}
+		//	cout << ii->first << ": " << iterations << endl;
+		//}
+		//cout << "Best action is " << maxAction << endl;
 	}
 	catch(E& e){ e.Print(); }
 
