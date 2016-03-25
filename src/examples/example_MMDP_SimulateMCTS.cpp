@@ -168,23 +168,28 @@ double MCTS(DecPOMDPDiscreteInterface* decpomdp, map<int, tree_node*> *states, t
 		int nrActions = decpomdp->GetNrJointActions();
 		int action = select_action(currentNode, decpomdp);
 		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action);
-		tree_node* stateNode = getNode(states, nextState);
 		double reward;
-		if (stateNode->isWinning) {
-			reward = 1.0;
-		}
-		else if (stateNode->isLosing) {
-			reward = 0.0;
+		if (nextState == currentNode->state) {
+			reward = simulation(decpomdp, states, currentNode, horizon - 1);
 		}
 		else {
-			list<tree_node*>* stateList = &(currentNode->children[action]); // Will instantiate new list if not done this action before
-			list<tree_node*>::iterator result = find(stateList->begin(), stateList->end(), stateNode);
-			if (result != stateList->end()) { // Gotten here before, go deeper
-				reward = MCTS(decpomdp, states, stateNode, horizon - 1);
+			tree_node* stateNode = getNode(states, nextState);
+			if (stateNode->isWinning) {
+				reward = 1.0;
 			}
-			else { // Never gotten here before
-				reward = simulation(decpomdp, states, stateNode, horizon - 1);
-				stateList->push_back(stateNode);
+			else if (stateNode->isLosing) {
+				reward = 0.0;
+			}
+			else {
+				list<tree_node*>* stateList = &(currentNode->children[action]); // Will instantiate new list if not done this action before
+				list<tree_node*>::iterator result = find(stateList->begin(), stateList->end(), stateNode);
+				if (result != stateList->end()) { // Gotten here before, go deeper
+					reward = MCTS(decpomdp, states, stateNode, horizon - 1);
+				}
+				else { // Never gotten here before
+					reward = simulation(decpomdp, states, stateNode, horizon - 1);
+					stateList->push_back(stateNode);
+				}
 			}
 		}
 
