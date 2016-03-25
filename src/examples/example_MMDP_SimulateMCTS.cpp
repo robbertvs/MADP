@@ -49,8 +49,6 @@ struct tree_node
 	int state;
 	int iterations;
 	double average;
-	double min;
-	double max;
 	bool isWinning;
 	bool isLosing;
 	map<int, list<tree_node*> > children; //Map of action to list of children
@@ -66,8 +64,6 @@ struct tree_node
 		state = s;
 		iterations = 0;
 		average = 0.0;
-		min = 10 ^ 10;
-		max = -10 ^ 10;
 		isWinning = false;
 		isLosing = false;
 	}
@@ -149,8 +145,7 @@ int select_action(tree_node* currentNode, DecPOMDPDiscreteInterface* decpomdp)
 			sumValue += (*child)->iterations * (*child)->average;
 		}
 		double averageValue = sumValue / iterations;
-		double normalizedValue = (averageValue - currentNode->min) / (currentNode->max - currentNode->min);
-		double uctValue = normalizedValue + 2*exploration*sqrt(2*log(currentNode->iterations)/iterations);
+		double uctValue = averageValue + 2*exploration*sqrt(2*log(currentNode->iterations)/iterations);
 		if(iterations==0)
 		{
 			uctValue = 10000+rand()%1000; // explore new actions first.
@@ -256,7 +251,7 @@ int main(int argc, char **argv)
 
 		int nrStates = decpomdp->GetNrStates();
 		int nrActions = decpomdp->GetNrJointActions();
-		
+
 		size_t initialState = decpomdp->SampleInitialState();
 
 		// Pure BFS. Takes a long time, answer is only marginally better than pure random.
@@ -311,6 +306,7 @@ int main(int argc, char **argv)
 				maxIterations = iterations;
 				maxAction = ii->first;
 			}
+			cout << ii->first << ": " << iterations << endl;
 		}
 		cout << "Best action is " << maxAction << endl;
 	}
