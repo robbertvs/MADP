@@ -264,62 +264,41 @@ action_node* select_final_action(state_node* currentNode, DecPOMDPDiscreteInterf
 	int maxIterations = 0;
 	action_node* selectedAction;
 	set<action_node*, comparator<action_node> > *actions = &(currentNode->children);
-	for(int action = 0; action<nrActions; action++)
+	for (set<action_node*, comparator<action_node> >::iterator ii = actions->begin(); ii != actions->end(); ++ii)
 	{
-		action_node* dummy = new action_node(currentNode, action);
-		action_node* actionNode;
-		set<action_node*>::iterator result = actions->find(dummy);
-		if (result != actions->end()) {
-			actionNode = (*result);
-		}
-		else {
-			actionNode = dummy;
-			actions->insert(actionNode);
-		}
-
-		int iterations = actionNode->iterations;
-
-		if (iterations > maxIterations) {
-			maxIterations = iterations;
-			selectedAction = actionNode;
+		if ((*ii)->iterations > maxIterations) {
+			maxIterations = (*ii)->iterations;
+			selectedAction = (*ii);
 		}
 	}
+
+	if (maxIterations == 0) { // No idea what to do, pick randomly
+		selectedAction = new action_node(currentNode, rand() % nrActions);
+	}
+
 	return selectedAction;
 }
 
-double final_simulation(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, state_node* currentNode, int horizon)
+double final_simulation(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, state_node* currentNode, int* horizon)
 {
-	if (horizon <= 0) {
+	if (*horizon <= 0) {
 		return 0.0;
 	}
 	else {
+		(*horizon)--;
 		action_node* action = select_final_action(currentNode, decpomdp);
 		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action->action);
-		double reward;
+		//cout << "Choosing action " << action->action << " in state " << currentNode->state << " takes us into state " << nextState << endl;
 
 		state_node* stateNode = getNode(states, nextState);
 		if (stateNode->isWinning) {
-			reward = 1.0;
-		}
-		else if (stateNode->isLosing) {
-			reward = 0.0;
-		}
-		else {
-			set<state_node*>::iterator result = action->children.find(stateNode);
-			if (result == action->children.end()) {
-				action->children.insert(stateNode);
-			}
+			return 1.0;
+		} 
+		if (stateNode->isLosing) {
+			return 0.0;
+		}				
 
-			if (stateNode->iterations > 0) { // Gotten here before, go deeper
-				reward = final_simulation(decpomdp, states, stateNode, horizon - 1);
-			}
-			else { // Never gotten here before
-				reward = simulation(decpomdp, states, stateNode, horizon - 1);
-				//cout << "Simulation for node " << nextState << " gives reward " << reward << endl;
-			}
-		}
-
-		return reward;
+		return final_simulation(decpomdp, states, stateNode, horizon);
 	}
 }
 
@@ -418,8 +397,8 @@ int main(int argc, char **argv)
 			double sumReward = 0;
 			for (int j = 0; j < args.horizon; j++) {
 				int action = rand() % nrActions;
-				currentState = decpomdp->SampleSuccessorState(currentState, action);
 				sumReward += decpomdp->GetReward(currentState, action)*pow(discount, j);
+				currentState = decpomdp->SampleSuccessorState(currentState, action);
 			}
 			if (sumReward > maxReward) maxReward = sumReward;
 			//cout << "Run " << i << " with reward " << sumReward << endl;
@@ -439,25 +418,33 @@ int main(int argc, char **argv)
 			cout << getNode(&states, i)->toString() << endl;
 		}
 
-		int maxIterations = 0;
-		int maxAction = 0;
-		for (set<action_node*, comparator<action_node> >::iterator ii = root->children.begin(); ii != root->children.end(); ++ii)
+		for (map<int, state_node*>::iterator ii = states.begin(); ii != states.end(); ++ii)
 		{
-
-			if ((*ii)->iterations > maxIterations) {
-				maxIterations = (*ii)->iterations;
-				maxAction = (*ii)->action;
+			int maxIterations = 0;
+			int maxAction = 0;
+			state_node* state = ii->second;
+			for (set<action_node*, comparator<action_node> >::iterator jj = state->children.begin(); jj != state->children.end(); ++jj)
+			{
+				if ((*jj)->iterations > maxIterations) {
+					maxIterations = (*jj)->iterations;
+					maxAction = (*jj)->action;
+				}
 			}
-			cout << (*ii)->action << ": " << (*ii)->iterations << endl;
+			cout << "Best action for state " << ii->first << " is " << maxAction << endl;
 		}
-		cout << "Best action is " << maxAction << endl;
+
 
 		double finalSum = 0.0;
-		for(int i = 0; i<100; i++)
+		int finalStepsSum = 0;
+		int sims = 1000;
+		for(int i = 0; i<sims; i++)
 		{
-			finalSum += final_simulation(decpomdp, &states, root, args.horizon);
-		}
-		cout << finalSum/100 << endl;
+			int stepsLeft = args.horizon;
+			double reward = final_simulation(decpomdp, &states, root, &stepsLeft);
+			finalSum += reward;
+			finalStepsSum += args.horizon - stepsLeft;
+		}		
+		cout << "Win chance of " << setprecision(3) << (finalSum / sims) << " in an average of " << ((double)finalStepsSum / sims) << " steps" << endl;
 	}
 	catch(E& e){ e.Print(); }
 
