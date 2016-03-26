@@ -402,7 +402,8 @@ int main(int argc, char **argv)
 		int nrStates = decpomdp->GetNrStates();
 		int nrActions = decpomdp->GetNrJointActions();
 
-		size_t initialState = decpomdp->SampleInitialState();
+		int initialState = decpomdp->SampleInitialState();
+		cout << "Starting in state " << initialState << endl;
 
 		// Pure BFS. Takes a long time, answer is only marginally better than pure random.
 		//long steps = pow(nrActions, args.horizon);
