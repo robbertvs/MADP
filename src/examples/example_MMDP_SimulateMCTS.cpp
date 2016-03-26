@@ -328,21 +328,6 @@ double BFS(DecPOMDPDiscreteInterface* decpomdp, long steps, int state) {
     return maxReward;
 }
 
-//void printTree(state_node* node, int depth, int maxDepth) {
-//	cout << string(depth, '\t') << node->toString() << endl;
-//	if (maxDepth == 0 || depth < maxDepth) {
-//		for (map<int, list<state_node*> >::iterator ii = node->children.begin(); ii != node->children.end(); ++ii)
-//		{
-//			cout << string(depth, '\t') << ii->first << ": " << endl;
-//
-//			for (list<state_node*>::iterator jj = ii->second.begin(); jj != ii->second.end(); ++jj)
-//			{
-//				printTree(*jj, depth + 1, maxDepth);
-//			}
-//		}
-//	}
-//}
-
 int main(int argc, char **argv)
 {
     ArgumentHandlers::Arguments args;
@@ -354,29 +339,7 @@ int main(int argc, char **argv)
 		DecPOMDPDiscreteInterface* decpomdp = GetDecPOMDPDiscreteInterfaceFromArgs(args);
 		cout << "...done."<<endl;
 
-		srand(42);
-
-		//state_node* s = new state_node(5);
-		//action_node* node1 = new action_node(s, 1);
-		//action_node* node2 = new action_node(s, 1);
-		//set<action_node*, comparator<action_node> > set;
-		//set.insert(node1);
-		//set.insert(node2);
-		//cout << "Size should now be 1: " << set.size() << endl;
-		//action_node* node3 = new action_node(s, 2);
-		//set.insert(node3);
-		//cout << "Size should now be 2: " << set.size() << endl;
-
-		//state_node* s2 = new state_node(6);
-		//state_node* s3 = new state_node(6);
-		//node1->children.insert(s2);
-		//node1->children.insert(s3);
-		//cout << "Size should now be 1: " << node1->children.size() << endl;
-		//state_node* s4 = new state_node(7);
-		//node1->children.insert(s4);
-		//cout << "Size should now be 2: " << node1->children.size() << endl;
-
-		//return 0;
+		srand(time(NULL));
 
 		int nrStates = decpomdp->GetNrStates();
 		int nrActions = decpomdp->GetNrJointActions();
@@ -389,21 +352,20 @@ int main(int argc, char **argv)
 		//cout << "Maximum BFS reward found (" << steps << " steps) is " << BFS(decpomdp, steps, initialState) << endl;
 
 		// Pure random
-		double discount = decpomdp->GetDiscount();
-		double maxReward = -std::numeric_limits<double>::max();
+		//double discount = decpomdp->GetDiscount();
+		//double maxReward = -std::numeric_limits<double>::max();
 
-		for (int i = 0; i < 10000; i++) {
-			size_t currentState = initialState;
-			double sumReward = 0;
-			for (int j = 0; j < args.horizon; j++) {
-				int action = rand() % nrActions;
-				sumReward += decpomdp->GetReward(currentState, action)*pow(discount, j);
-				currentState = decpomdp->SampleSuccessorState(currentState, action);
-			}
-			if (sumReward > maxReward) maxReward = sumReward;
-			//cout << "Run " << i << " with reward " << sumReward << endl;
-		}
-		cout << "Maximum random search reward found is " << maxReward << endl;
+		//for (int i = 0; i < 10000; i++) {
+		//	size_t currentState = initialState;
+		//	double sumReward = 0;
+		//	for (int j = 0; j < args.horizon; j++) {
+		//		int action = rand() % nrActions;
+		//		sumReward += decpomdp->GetReward(currentState, action)*pow(discount, j);
+		//		currentState = decpomdp->SampleSuccessorState(currentState, action);
+		//	}
+		//	if (sumReward > maxReward) maxReward = sumReward;
+		//}
+		//cout << "Maximum random search reward found is " << maxReward << endl;
 
 		map<int, state_node*> states;
 		state_node* root = getNode(&states, initialState);
@@ -413,15 +375,17 @@ int main(int argc, char **argv)
 		for (int i = 0; i < 10000; i++) {
 			MCTS(decpomdp, &states, root, args.horizon);
 		}
-		//printTree(root, 0, 2);
+
+		// Print Nodes
 		for (int i = 0; i < nrStates; i++) {
 			cout << getNode(&states, i)->toString() << endl;
 		}
 
+		// Print best actions
 		for (map<int, state_node*>::iterator ii = states.begin(); ii != states.end(); ++ii)
 		{
 			int maxIterations = 0;
-			int maxAction = 0;
+			int maxAction = -1;
 			state_node* state = ii->second;
 			for (set<action_node*, comparator<action_node> >::iterator jj = state->children.begin(); jj != state->children.end(); ++jj)
 			{
@@ -433,7 +397,7 @@ int main(int argc, char **argv)
 			cout << "Best action for state " << ii->first << " is " << maxAction << endl;
 		}
 
-
+		// Simulate results
 		double finalSum = 0.0;
 		int finalStepsSum = 0;
 		int sims = 1000;
