@@ -16,7 +16,13 @@
 #include <iostream>
 
 #include "DecPOMDPDiscrete.h"
-#include "TreeNode.h"
+#include "SimulationDecPOMDPDiscrete.h"
+#include "NullPlanner.h"
+#include "directories.h"
+
+#include "MDPValueIteration.h"
+#include "QTable.h"
+#include "AgentMDP.h"
 
 #include "argumentHandlers.h"
 #include "argumentUtils.h"
@@ -132,10 +138,11 @@ state_node* getNode(map<int, state_node*> *states, int state) {
 void addWinningAndLosingStates(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states) {
 	int nrStates = decpomdp->GetNrStates();
 	int nrActions = decpomdp->GetNrJointActions();
-	double maxStateReward = -std::numeric_limits<double>::max();
-	double minStateReward = std::numeric_limits<double>::max();
+	double maxStateReward = -DBL_MAX;
+	double minStateReward = DBL_MAX;
 	int winningState = 0;
 	int losingState = 0;
+	bool losingDuplicate = false;
 	for (int i = 0; i < nrStates; i++) {
 		double reward = 0;
 		for (int j = 0; j < nrActions; j++) {
@@ -146,17 +153,23 @@ void addWinningAndLosingStates(DecPOMDPDiscreteInterface* decpomdp, map<int, sta
 			maxStateReward = reward;
 			winningState = i;
 		}
+		if (reward == minStateReward) {
+			losingDuplicate = true;
+		}
 		if (reward < minStateReward) {
 			minStateReward = reward;
 			losingState = i;
+			losingDuplicate = false;
 		}
 	}
 	cout << "State " << winningState << " is the winning state and " << losingState << " is the losing state" << endl;
 	state_node* winningNode = getNode(states, winningState);
 	winningNode->isWinning = true;
 
-	state_node* losingNode = getNode(states, losingState);
-	losingNode->isLosing = true;
+	if (!losingDuplicate) {
+		state_node* losingNode = getNode(states, losingState);
+		losingNode->isLosing = true;
+	}
 }
 
 double simulation(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node*> *states, state_node* startNode, int horizon) {
@@ -284,22 +297,54 @@ double final_simulation(DecPOMDPDiscreteInterface* decpomdp, map<int, state_node
 	if (*horizon <= 0) {
 		return 0.0;
 	}
-	else {
-		(*horizon)--;
-		action_node* action = select_final_action(currentNode, decpomdp);
-		int nextState = decpomdp->SampleSuccessorState(currentNode->state, action->action);
-		//cout << "Choosing action " << action->action << " in state " << currentNode->state << " takes us into state " << nextState << endl;
+	
+	(*horizon)--;
+	action_node* action = select_final_action(currentNode, decpomdp);
+	int nextState = decpomdp->SampleSuccessorState(currentNode->state, action->action);
+	//cout << "Choosing action " << action->action << " in state " << currentNode->state << " takes us into state " << nextState << endl;
 
-		state_node* stateNode = getNode(states, nextState);
-		if (stateNode->isWinning) {
-			return 1.0;
-		} 
-		if (stateNode->isLosing) {
-			return 0.0;
-		}				
+	state_node* stateNode = getNode(states, nextState);
+	if (stateNode->isWinning) {
+		return 1.0;
+	} 
+	if (stateNode->isLosing) {
+		return 0.0;
+	}				
 
-		return final_simulation(decpomdp, states, stateNode, horizon);
+	return final_simulation(decpomdp, states, stateNode, horizon);
+	
+}
+
+double vi_simulation(DecPOMDPDiscreteInterface* decpomdp, QTable q, map<int, state_node*> *states, state_node* currentNode, int* horizon)
+{
+	if (*horizon <= 0) {
+		return 0.0;
 	}
+
+	(*horizon)--;
+	int nrActions = decpomdp->GetNrJointActions();
+	int actionMax = 0;
+	double qMax = -DBL_MAX;
+	for (int i = 0; i < nrActions; ++i)
+	{
+		double qVal = q(currentNode->state, i);
+		if (qVal > qMax)
+		{
+			qMax = qVal;
+			actionMax = i;
+		}
+	}
+
+	int nextState = decpomdp->SampleSuccessorState(currentNode->state, actionMax);
+	state_node* stateNode = getNode(states, nextState);
+	if (stateNode->isWinning) {
+		return 1.0;
+	}
+	if (stateNode->isLosing) {
+		return 0.0;
+	}
+
+	return vi_simulation(decpomdp, q, states, stateNode, horizon);
 }
 
 //BFS currently does not take into account the stochastic nature of the environment.
@@ -339,7 +384,7 @@ int main(int argc, char **argv)
 		DecPOMDPDiscreteInterface* decpomdp = GetDecPOMDPDiscreteInterfaceFromArgs(args);
 		cout << "...done."<<endl;
 
-		srand(time(NULL));
+		srand(42);
 
 		int nrStates = decpomdp->GetNrStates();
 		int nrActions = decpomdp->GetNrJointActions();
@@ -371,44 +416,74 @@ int main(int argc, char **argv)
 		state_node* root = getNode(&states, initialState);
 		addWinningAndLosingStates(decpomdp, &states);
 
+
+		clock_t startTime = clock();
 		// MCTS
-		for (int i = 0; i < 10000; i++) {
+		for (int i = 0; i < 100000; i++) {
 			MCTS(decpomdp, &states, root, args.horizon);
 		}
+		cout << "MCTS took " << double(clock() - startTime) / (double)CLOCKS_PER_SEC << " seconds." << endl;
 
-		// Print Nodes
-		for (int i = 0; i < nrStates; i++) {
-			cout << getNode(&states, i)->toString() << endl;
-		}
+		//// Print Nodes
+		//for (int i = 0; i < nrStates; i++) {
+		//	cout << getNode(&states, i)->toString() << endl;
+		//}
 
-		// Print best actions
-		for (map<int, state_node*>::iterator ii = states.begin(); ii != states.end(); ++ii)
-		{
-			int maxIterations = 0;
-			int maxAction = -1;
-			state_node* state = ii->second;
-			for (set<action_node*, comparator<action_node> >::iterator jj = state->children.begin(); jj != state->children.end(); ++jj)
-			{
-				if ((*jj)->iterations > maxIterations) {
-					maxIterations = (*jj)->iterations;
-					maxAction = (*jj)->action;
-				}
-			}
-			cout << "Best action for state " << ii->first << " is " << maxAction << endl;
-		}
+		//// Print best actions
+		//for (map<int, state_node*>::iterator ii = states.begin(); ii != states.end(); ++ii)
+		//{
+		//	int maxIterations = 0;
+		//	int maxAction = -1;
+		//	state_node* state = ii->second;
+		//	for (set<action_node*, comparator<action_node> >::iterator jj = state->children.begin(); jj != state->children.end(); ++jj)
+		//	{
+		//		if ((*jj)->iterations > maxIterations) {
+		//			maxIterations = (*jj)->iterations;
+		//			maxAction = (*jj)->action;
+		//		}
+		//	}
+		//	cout << "Best action for state " << ii->first << " is " << maxAction << endl;
+		//}
 
 		// Simulate results
 		double finalSum = 0.0;
 		int finalStepsSum = 0;
 		int sims = 1000;
+		cout << "strtoi(unlist(strsplit(\"";
 		for(int i = 0; i<sims; i++)
 		{
 			int stepsLeft = args.horizon;
 			double reward = final_simulation(decpomdp, &states, root, &stepsLeft);
 			finalSum += reward;
 			finalStepsSum += args.horizon - stepsLeft;
-		}		
-		cout << "Win chance of " << setprecision(3) << (finalSum / sims) << " in an average of " << ((double)finalStepsSum / sims) << " steps" << endl;
+			if (reward > 0.0)
+				cout << (args.horizon - stepsLeft) << ",";
+		}
+		cout << "\", split=\",\")))" << endl;
+		cout << "MCTS has a win chance of " << setprecision(3) << (finalSum / sims) << " in an average of " << ((double)finalStepsSum / sims) << " steps" << endl;
+
+		startTime = clock();
+		PlanningUnitDecPOMDPDiscrete *np = new NullPlanner(args.horizon, decpomdp);
+		MDPValueIteration vi(*np);
+		vi.Plan();
+		QTable q = vi.GetQTable(0);
+		cout << "VI took " << double(clock() - startTime) / (double)CLOCKS_PER_SEC << " seconds." << endl;
+
+		finalSum = 0.0;
+		finalStepsSum = 0;
+		cout << "strtoi(unlist(strsplit(\"";
+		for (int i = 0; i<sims; i++)
+		{
+			int stepsLeft = args.horizon;
+			double reward =	vi_simulation(decpomdp, q, &states, root, &stepsLeft);
+			finalSum += reward;
+			finalStepsSum += args.horizon - stepsLeft;
+			if(reward > 0.0)
+				cout << (args.horizon - stepsLeft) << ",";
+		}
+		cout << "\", split=\",\")))" << endl;
+		cout << "Value iteration has a win chance of " << setprecision(3) << (finalSum / sims) << " in an average of " << ((double)finalStepsSum / sims) << " steps" << endl;
+
 	}
 	catch(E& e){ e.Print(); }
 
