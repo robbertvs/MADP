@@ -384,7 +384,7 @@ int main(int argc, char **argv)
 		DecPOMDPDiscreteInterface* decpomdp = GetDecPOMDPDiscreteInterfaceFromArgs(args);
 		cout << "...done."<<endl;
 
-		srand(42);
+		srand(10); //Seed to start in state 7 for 4x3
 
 		int nrStates = decpomdp->GetNrStates();
 		int nrActions = decpomdp->GetNrJointActions();
@@ -419,7 +419,7 @@ int main(int argc, char **argv)
 
 		clock_t startTime = clock();
 		// MCTS
-		for (int i = 0; i < 100000; i++) {
+		for (int i = 0; i < 10000; i++) {
 			MCTS(decpomdp, &states, root, args.horizon);
 		}
 		cout << "MCTS took " << double(clock() - startTime) / (double)CLOCKS_PER_SEC << " seconds." << endl;
@@ -449,7 +449,7 @@ int main(int argc, char **argv)
 		double finalSum = 0.0;
 		int finalStepsSum = 0;
 		int sims = 1000;
-		cout << "strtoi(unlist(strsplit(\"";
+		//cout << "strtoi(unlist(strsplit(\"";
 		for(int i = 0; i<sims; i++)
 		{
 			int stepsLeft = args.horizon;
@@ -459,8 +459,11 @@ int main(int argc, char **argv)
 			if (reward > 0.0)
 				cout << (args.horizon - stepsLeft) << ",";
 		}
-		cout << "\", split=\",\")))" << endl;
+		//cout << "\", split=\",\")))" << endl;
+		cout << endl;
 		cout << "MCTS has a win chance of " << setprecision(3) << (finalSum / sims) << " in an average of " << ((double)finalStepsSum / sims) << " steps" << endl;
+
+		srand(10); // Reset seed so VI is not affected by MCTS
 
 		startTime = clock();
 		PlanningUnitDecPOMDPDiscrete *np = new NullPlanner(args.horizon, decpomdp);
@@ -471,7 +474,7 @@ int main(int argc, char **argv)
 
 		finalSum = 0.0;
 		finalStepsSum = 0;
-		cout << "strtoi(unlist(strsplit(\"";
+		//cout << "strtoi(unlist(strsplit(\"";
 		for (int i = 0; i<sims; i++)
 		{
 			int stepsLeft = args.horizon;
@@ -481,7 +484,8 @@ int main(int argc, char **argv)
 			if(reward > 0.0)
 				cout << (args.horizon - stepsLeft) << ",";
 		}
-		cout << "\", split=\",\")))" << endl;
+		//cout << "\", split=\",\")))" << endl;
+		cout << endl;
 		cout << "Value iteration has a win chance of " << setprecision(3) << (finalSum / sims) << " in an average of " << ((double)finalStepsSum / sims) << " steps" << endl;
 
 	}
